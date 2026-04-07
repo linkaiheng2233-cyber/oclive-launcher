@@ -28,19 +28,19 @@ echo Unknown option: %~1
 goto :usage
 
 :tauridev
-echo [oclive-launcher] Tauri 窗口 ^(npm run tauri:dev^)...
-echo 需已安装 Rust；控制台保持运行，结束请关闭启动器窗口或按 Ctrl+C。
+echo [oclive-launcher] Tauri ^(npm run tauri:dev^)...
+echo Requires Rust. Leave this window open; close the app or press Ctrl+C to stop.
 call npm run tauri:dev
 exit /b %errorlevel%
 
 :webdev
-echo [oclive-launcher] 仅浏览器 ^(npm run dev，http://127.0.0.1:5174^)...
-echo 无 Tauri 时界面无法调用本机能力，仅适合看布局。
+echo [oclive-launcher] Browser only ^(npm run dev, http://127.0.0.1:5174^)...
+echo Without Tauri, IPC is unavailable. For layout preview only.
 call npm run dev
 exit /b %errorlevel%
 
 :usage
 echo Usage:
-echo   start.bat           - 桌面启动器 ^(Tauri，推荐^)
-echo   start.bat web       - 仅 Vite 浏览器预览
+echo   start.bat           - Tauri hub ^(recommended^)
+echo   start.bat web       - Vite in browser only
 exit /b 0
