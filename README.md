@@ -1,6 +1,6 @@
 # oclive 启动器
 
-[![CI](https://github.com/linkaiheng2233-cyber/oclive-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/linkaiheng2233-cyber/oclive-launcher/actions/workflows/ci.yml)
+[![CI](https://github.com/supermumu/oclive-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/supermumu/oclive-launcher/actions/workflows/ci.yml)
 
 独立 **桌面启动器**（Tauri 1.x + Vue 3 + TypeScript）：作为 **oclive 工具链的统一入口**，集中管理 **角色包编写器**（`oclive-pack-editor`）与 **oclive 运行时**（例如 `oclivenewnew`）的启动方式，把子进程 **stdout / stderr** 收到本窗口，避免弹出多个控制台；支持 **公告栏**、**GitHub Release 版本检查** 与 **打开发布页**。
 
@@ -10,10 +10,50 @@
 
 | 仓库 | 说明 |
 |------|------|
-| [oclivenewnew](https://github.com/linkaiheng2233-cyber/oclivenewnew) | 运行时、HTTP API、`creator-docs` 与角色契约 |
-| [oclive-pack-editor](https://github.com/linkaiheng2233-cyber/oclive-pack-editor) | 角色包编写器（导出与校验） |
+| [oclivenewnew](https://github.com/supermumu/oclivenewnew) | 运行时、HTTP API、`creator-docs` 与角色契约 |
+| [oclive-pack-editor](https://github.com/supermumu/oclive-pack-editor) | 角色包编写器（导出与校验） |
 
 本地开发时可将三仓 **同级克隆**（例如 `D:\oclivenewnew`、`D:\oclive-pack-editor`、`D:\oclive-launcher`），在启动器里填写相对路径即可。
+
+## 新用户：从下载到第一次对话（推荐路径）
+
+三软件分工：**编写器**产出角色包 → 磁盘上的 **`roles/` 根** → **运行时**加载并对话；**启动器**负责配置路径、注入环境变量并一键启动前两者。
+
+| 步骤 | 做什么 |
+|------|--------|
+| 1 | 安装 **Node.js LTS**、**Ollama**（本地对话默认依赖本机模型）。 |
+| 2 | 获取三个应用：克隆或下载 [oclivenewnew](https://github.com/supermumu/oclivenewnew)、[oclive-pack-editor](https://github.com/supermumu/oclive-pack-editor)、本仓库；或使用各仓库 **Release** 构建的 `.exe`。 |
+| 3 | 打开本启动器，在 **「启动」** 中填写 **编写器**与 **oclive 运行时** 的项目根（开发模式）或可执行文件路径（exe 模式）。 |
+| 4 | 在同一页的 **oclive 运行时** 卡片中填写 **角色包根目录**（环境变量 **`OCLIVE_ROLES_DIR`**）。若 oclive 项目为克隆的 `oclivenewnew`，可点 **「从 oclive 仓库填入」** 自动填入仓库内 `roles/`。启动 oclive 时由启动器注入该变量；留空则不在此注入（你也可在系统环境中自行设置）。 |
+| 5 | 用编写器编辑或导入包并 **导出 zip**，解压到 `OCLIVE_ROLES_DIR/某角色id/`；或使用编写器 **「写入文件夹」** 直接写入该根目录。 |
+| 6 | 在启动器 **启动 oclive**，在应用内选择角色并开始对话。 |
+
+**环境与排障** 页会检测 Node / npm、Ollama CLI 与 `127.0.0.1:11434`、项目路径及角色包根目录；若 Ollama 未就绪会显示 **醒目提示** 并链接官方下载页。
+
+### 你可以提前准备的材料（可选）
+
+- 三个仓库在本机的 **绝对路径**（便于一次填对）。
+- 一个空的 **文件夹** 作为自定义 `roles` 根，或直接使用 **oclivenewnew 仓库内的 `roles/`**（内含示例 `mumu`）。
+- 若使用 Ollama 自定义模型：记下 **模型名**（在 oclive 的 `settings`/环境变量中配置，见 oclivenewnew 文档）。
+
+### GitHub「owner/repo」是什么（不是法律协议，是使用约定）
+
+- **owner**：GitHub 上的用户或组织名；**repo**：仓库短名。合起来唯一对应 `https://github.com/owner/repo`。
+- 启动器用它们拼 **Releases** 地址并调用 **GitHub 公开 API**（`GET /repos/{owner}/{repo}/releases/latest`）检查版本，因此仓库需对你**可读**（公开仓库最省事）。
+- **默认占位**：首次使用或两项均为空时，会填入当前生态的**上游** `owner/repo`，减少手填；若你用自己的 **fork**，请改成你的仓库名。
+- **API 限流**：匿名请求有频率上限；仅偶尔点「检查更新」一般足够。若将来需要高频或私有仓库，再考虑 **Personal Access Token**（当前未实现）。
+
+### Ollama：程序下载 vs 模型下载
+
+- **安装 Ollama**：从 [ollama.com/download](https://ollama.com/download) 安装的是**程序本体**；装好后需保持服务运行（托盘图标）。
+- **模型**：安装 ≠ 已有模型。需在终端执行 `ollama pull <模型名>`，模型列表见 [Ollama Library](https://ollama.com/library)。角色包里的 `settings.json` 会写默认模型名（生态默认推荐 `qwen2.5:7b`），请确保本地已 `ollama pull` 对应名称。
+- **网络**：安装包与 `pull` 若较慢，可重试或查阅 Ollama 官方文档；国内环境以官方说明为准。
+
+### 「仅玩家」整合包与 Release（规划向）
+
+若将来提供**整合安装包**（运行时 + 空 `roles` + 启动器），需要与各仓库 **Release 资产命名**、版本号对齐；编写器与运行时的 **Release 下载入口**已在本启动器「版本」页通过 **Releases** 链接提供。
+
+**资产命名约定（生态一致）**：按软件区分前缀，再加平台与语义化版本，例如 `oclive-pack-editor-windows-v1.2.3.zip`、`oclivenewnew-windows-v1.2.3.zip`、`oclive-launcher-windows-v1.2.3.zip`（具体以各仓库 CI 为准）。
 
 ## 功能概览
 
@@ -22,8 +62,12 @@
 | **公告栏** | 本地 Markdown/纯文本，保存到应用配置目录下的 `announcements.md` |
 | **版本与更新** | 分别为编写器、oclive 填写 GitHub `owner/repo`，检查远端最新 Release；本地版本从各项目根目录 `package.json` 读取 |
 | **启动** | 每个应用可选 **开发模式**（在项目根执行 `npm run <脚本>`，默认 `tauri:dev`）或 **exe 模式**（直接运行已构建的 `.exe`） |
-| **环境与排障** | **一键检测** Node / npm / Ollama（CLI 与 `127.0.0.1:11434` API）、编写器/oclive 项目目录是否存在且含 `package.json`；**打开配置目录**；**一键重置**损坏的 `launcher-config.json`（原文件尽量备份为 `launcher-config.json.corrupt.bak`）；附 Node / Ollama 官方下载链接 |
-| **运行日志** | 子进程在 Windows 上使用 **无控制台窗口** 启动，输出汇总到下方日志区，可按应用筛选 |
+| **第一次使用** | 上手步骤与三仓库关系；鼓励玩家与创作者自由尝试 |
+| **首次启动** | 自动跑一次环境检测一次（本地记忆），状态栏提示欢迎语 |
+| **环境与排障** | **一键检测** Node / npm / Ollama（CLI 与 `127.0.0.1:11434` API）、编写器/oclive 项目目录、`OCLIVE_ROLES_DIR` 是否有效；Ollama 未就绪时 **横幅提示**；**打开配置目录**；**一键重置**损坏的 `launcher-config.json`（原文件尽量备份为 `launcher-config.json.corrupt.bak`）；附 Node / Ollama 官方下载链接 |
+| **启动** | 为 **oclive** 子进程注入 **`OCLIVE_ROLES_DIR`**（若已填写）；支持从 oclivenewnew 仓库根 **一键填入 `roles/`** |
+| **角色包 zip 安装** | 「从 zip 安装角色包」：解压编写器导出的包到 `roles/` 下，对话框选择 **Ollama 模型**（默认 `qwen2.5:7b`）、本机已拉取列表、或 **手动输入**；可选是否 **覆盖** `settings.json` 里已有 `model`；可一键 **`ollama pull`**（日志筛选「ollama」） |
+| **运行日志** | 子进程在 Windows 上使用 **无控制台窗口** 启动，输出汇总到下方日志区，可按应用筛选（含 **ollama pull**） |
 
 ## 与「整合包 / 一键装模型」等方向的路线（长期）
 

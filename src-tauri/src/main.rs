@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod role_pack;
+
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use std::io::{BufRead, BufReader};
@@ -40,15 +42,34 @@ struct LauncherConfig {
     github_oclive_owner: String,
     #[serde(default)]
     github_oclive_repo: String,
+    /// 启动 oclive 时注入环境变量 `OCLIVE_ROLES_DIR`（须为已存在的目录：其下为各 `角色id/`）。
+    #[serde(default)]
+    oclive_roles_dir: String,
 }
 
 fn default_npm() -> String {
     "tauri:dev".to_string()
 }
 
+/// 上游仓库占位（用户可改为自己的 fork；仅当 owner+repo 均为空时由 `load_config` 填入）。
+const UPSTREAM_GITHUB_OWNER: &str = "supermumu";
+const UPSTREAM_EDITOR_REPO: &str = "oclive-pack-editor";
+const UPSTREAM_OCLIVE_REPO: &str = "oclivenewnew";
+
+fn ensure_github_upstream_defaults(c: &mut LauncherConfig) {
+    if c.github_editor_owner.trim().is_empty() && c.github_editor_repo.trim().is_empty() {
+        c.github_editor_owner = UPSTREAM_GITHUB_OWNER.into();
+        c.github_editor_repo = UPSTREAM_EDITOR_REPO.into();
+    }
+    if c.github_oclive_owner.trim().is_empty() && c.github_oclive_repo.trim().is_empty() {
+        c.github_oclive_owner = UPSTREAM_GITHUB_OWNER.into();
+        c.github_oclive_repo = UPSTREAM_OCLIVE_REPO.into();
+    }
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
-        Self {
+        let mut s = Self {
             editor_project_root: String::new(),
             editor_exe: String::new(),
             editor_mode: "dev".into(),
@@ -61,7 +82,10 @@ impl Default for LauncherConfig {
             github_editor_repo: String::new(),
             github_oclive_owner: String::new(),
             github_oclive_repo: String::new(),
-        }
+            oclive_roles_dir: String::new(),
+        };
+        ensure_github_upstream_defaults(&mut s);
+        s
     }
 }
 
@@ -94,7 +118,10 @@ fn load_config(app: tauri::AppHandle) -> Result<LauncherConfig, String> {
     }
     let s = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
     match serde_json::from_str::<LauncherConfig>(&s) {
-        Ok(c) => Ok(c),
+        Ok(mut c) => {
+            ensure_github_upstream_defaults(&mut c);
+            Ok(c)
+        }
         Err(_) => {
             let bak = path.with_extension("json.corrupt.bak");
             let _ = std::fs::copy(&path, &bak);
@@ -228,6 +255,8 @@ struct EnvDiagnostics {
     editor_package_json: bool,
     oclive_project_ok: bool,
     oclive_package_json: bool,
+    oclive_roles_dir_ok: bool,
+    oclive_roles_dir_has_role_hint: bool,
 }
 
 fn try_cmd_version(program: &str, args: &[&str]) -> Option<String> {
@@ -266,6 +295,18 @@ fn ollama_api_reachable() -> bool {
         .unwrap_or(false)
 }
 
+fn roles_dir_looks_populated(root: &Path) -> bool {
+    if !root.is_dir() {
+        return false;
+    }
+    std::fs::read_dir(root).ok().map_or(false, |rd| {
+        rd.flatten().any(|e| {
+            let p = e.path();
+            p.is_dir() && p.join("manifest.json").is_file()
+        })
+    })
+}
+
 fn dir_has_package_json(root: &str) -> (bool, bool) {
     let p = PathBuf::from(root.trim());
     if !p.is_dir() {
@@ -292,6 +333,15 @@ fn diagnose_environment(config: LauncherConfig) -> EnvDiagnostics {
     } else {
         dir_has_package_json(&config.oclive_project_root)
     };
+    let rd = config.oclive_roles_dir.trim();
+    let roles_path = PathBuf::from(rd);
+    let (roles_ok, roles_hint) = if rd.is_empty() {
+        (false, false)
+    } else if roles_path.is_dir() {
+        (true, roles_dir_looks_populated(&roles_path))
+    } else {
+        (false, false)
+    };
     EnvDiagnostics {
         node_version: node,
         npm_version: npm,
@@ -301,6 +351,8 @@ fn diagnose_environment(config: LauncherConfig) -> EnvDiagnostics {
         editor_package_json: ed_pkg,
         oclive_project_ok: oc_ok,
         oclive_package_json: oc_pkg,
+        oclive_roles_dir_ok: roles_ok,
+        oclive_roles_dir_has_role_hint: roles_hint,
     }
 }
 
@@ -309,6 +361,23 @@ fn reset_config_to_default(app: tauri::AppHandle) -> Result<LauncherConfig, Stri
     let c = LauncherConfig::default();
     save_config(app, c.clone())?;
     Ok(c)
+}
+
+/// 若 `oclivenewnew` 仓库根下存在 `roles/` 目录，返回其绝对路径字符串，供一键填入。
+#[tauri::command]
+fn suggest_roles_dir_from_oclive_root(oclive_project_root: String) -> Option<String> {
+    let root = PathBuf::from(oclive_project_root.trim());
+    if !root.is_dir() {
+        return None;
+    }
+    let roles = root.join("roles");
+    if roles.is_dir() {
+        std::fs::canonicalize(&roles)
+            .ok()
+            .map(|p| p.to_string_lossy().into_owned())
+    } else {
+        None
+    }
 }
 
 #[tauri::command]
@@ -323,6 +392,146 @@ fn open_config_directory(app: tauri::AppHandle) -> Result<(), String> {
     open::that(&dir).map_err(|e| e.to_string())
 }
 
+fn validate_ollama_model_name(s: &str) -> Result<(), String> {
+    let t = s.trim();
+    if t.is_empty() {
+        return Err("模型名为空".into());
+    }
+    if t.len() > 200 {
+        return Err("模型名过长".into());
+    }
+    if !t
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || ":._-/".contains(c))
+    {
+        return Err("模型名含非法字符（仅允许 ASCII 字母数字与 : . _ - /）".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn pick_role_pack_zip() -> Option<String> {
+    tauri::api::dialog::blocking::FileDialogBuilder::new()
+        .add_filter("角色包", &["zip", "ocpak"])
+        .pick_file()
+        .map(|p| p.to_string_lossy().into_owned())
+}
+
+/// 本机 Ollama 已拉取的模型名（`GET /api/tags`）；服务未启动时会报错。
+#[tauri::command]
+fn ollama_list_local_models() -> Result<Vec<String>, String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(4))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .get("http://127.0.0.1:11434/api/tags")
+        .send()
+        .map_err(|e| format!("无法连接 Ollama（是否已启动？）：{}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("Ollama API 返回 {}", resp.status()));
+    }
+    let v: serde_json::Value = resp.json().map_err(|e| e.to_string())?;
+    let models = v
+        .get("models")
+        .and_then(|m| m.as_array())
+        .ok_or_else(|| "响应中无 models".to_string())?;
+    let mut names: Vec<String> = models
+        .iter()
+        .filter_map(|m| m.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+        .collect();
+    names.sort();
+    names.dedup();
+    Ok(names)
+}
+
+#[tauri::command]
+fn install_role_pack_zip(
+    zip_path: String,
+    roles_root: String,
+    model: String,
+    overwrite_settings_model: bool,
+) -> Result<String, String> {
+    let zp = PathBuf::from(zip_path.trim());
+    if !zp.is_file() {
+        return Err("zip 文件不存在".into());
+    }
+    let root = PathBuf::from(roles_root.trim());
+    if !root.is_dir() {
+        return Err("请先填写有效的「角色包根目录」（须为已存在的文件夹）".into());
+    }
+    let model = model.trim();
+    validate_ollama_model_name(model)?;
+    let role_id = role_pack::extract_role_pack_zip(&zp, &root)?;
+    let settings = root.join(&role_id).join("settings.json");
+    role_pack::patch_settings_model(&settings, model, overwrite_settings_model)?;
+    Ok(role_id)
+}
+
+#[tauri::command]
+fn ollama_pull_model(app: tauri::AppHandle, model: String) -> Result<(), String> {
+    let model = model.trim().to_string();
+    validate_ollama_model_name(&model)?;
+    let app2 = app.clone();
+    thread::spawn(move || {
+        emit_log(
+            &app2,
+            "ollama",
+            "out",
+            &format!("--- 开始 ollama pull {} ---", model),
+        );
+        let mut cmd = Command::new("ollama");
+        cmd.args(["pull", &model]);
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                emit_log(
+                    &app2,
+                    "ollama",
+                    "err",
+                    &format!("启动 ollama pull 失败：{}", e),
+                );
+                return;
+            }
+        };
+        let stdout = match child.stdout.take() {
+            Some(s) => s,
+            None => {
+                emit_log(&app2, "ollama", "err", "无法读取 ollama stdout");
+                return;
+            }
+        };
+        let stderr = match child.stderr.take() {
+            Some(s) => s,
+            None => {
+                emit_log(&app2, "ollama", "err", "无法读取 ollama stderr");
+                return;
+            }
+        };
+        let app_o = app2.clone();
+        let h1 = thread::spawn(move || {
+            for line in BufReader::new(stdout).lines().flatten() {
+                emit_log(&app_o, "ollama", "out", &line);
+            }
+        });
+        let app_e = app2.clone();
+        let h2 = thread::spawn(move || {
+            for line in BufReader::new(stderr).lines().flatten() {
+                emit_log(&app_e, "ollama", "err", &line);
+            }
+        });
+        let _ = child.wait();
+        let _ = h1.join();
+        let _ = h2.join();
+        emit_log(&app2, "ollama", "out", "--- ollama pull 已结束 ---");
+    });
+    Ok(())
+}
+
 fn validate_npm_script(s: &str) -> Result<(), String> {
     if s.is_empty() || s.len() > 80 {
         return Err("npm 脚本名长度无效".into());
@@ -333,6 +542,24 @@ fn validate_npm_script(s: &str) -> Result<(), String> {
     {
         return Err("npm 脚本名含非法字符".into());
     }
+    Ok(())
+}
+
+/// 若配置了 `oclive_roles_dir`，为子进程设置 `OCLIVE_ROLES_DIR`（绝对路径）。
+fn apply_oclive_roles_env(cmd: &mut Command, config: &LauncherConfig) -> Result<(), String> {
+    let t = config.oclive_roles_dir.trim();
+    if t.is_empty() {
+        return Ok(());
+    }
+    let p = PathBuf::from(t);
+    if !p.is_dir() {
+        return Err(format!(
+            "角色包根目录无效（须为已存在的文件夹）：{}",
+            t
+        ));
+    }
+    let abs = std::fs::canonicalize(&p).unwrap_or(p);
+    cmd.env("OCLIVE_ROLES_DIR", abs);
     Ok(())
 }
 
@@ -462,6 +689,9 @@ fn spawn_managed_app(
         };
         let mut cmd = Command::new(&exe);
         cmd.current_dir(&cwd);
+        if kind == "oclive" {
+            apply_oclive_roles_env(&mut cmd, &config)?;
+        }
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         #[cfg(windows)]
@@ -497,6 +727,9 @@ fn spawn_managed_app(
         let mut cmd = Command::new("cmd");
         cmd.args(["/C", "npm", "run", &npm_script]);
         cmd.current_dir(&root);
+        if kind == "oclive" {
+            apply_oclive_roles_env(&mut cmd, &config)?;
+        }
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         #[cfg(windows)]
@@ -566,6 +799,11 @@ fn main() {
             diagnose_environment,
             reset_config_to_default,
             open_config_directory,
+            suggest_roles_dir_from_oclive_root,
+            pick_role_pack_zip,
+            ollama_list_local_models,
+            install_role_pack_zip,
+            ollama_pull_model,
             spawn_managed_app,
             stop_managed_app,
         ])
