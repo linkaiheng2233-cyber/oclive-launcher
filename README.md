@@ -6,6 +6,15 @@
 
 设计取向：在参考「绘世」等成熟启动器 **开箱即用、保姆式排障、一站式管理** 的思路的同时，结合 oclive **开源、角色包为纽带、双软件分工** 的特点，逐步增强——**不追求像素级复刻**，优先把 **路径配置、依赖可见性、错误可恢复** 做扎实。
 
+## 生态仓库（GitHub）
+
+| 仓库 | 说明 |
+|------|------|
+| [oclivenewnew](https://github.com/linkaiheng2233-cyber/oclivenewnew) | 运行时、HTTP API、`creator-docs` 与角色契约 |
+| [oclive-pack-editor](https://github.com/linkaiheng2233-cyber/oclive-pack-editor) | 角色包编写器（导出与校验） |
+
+本地开发时可将三仓 **同级克隆**（例如 `D:\oclivenewnew`、`D:\oclive-pack-editor`、`D:\oclive-launcher`），在启动器里填写相对路径即可。
+
 ## 功能概览
 
 | 区域 | 说明 |
