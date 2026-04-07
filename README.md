@@ -1,6 +1,6 @@
 # oclive 启动器
 
-独立 **桌面启动器**（Tauri 1.x + Vue 3 + TypeScript）：集中管理 **角色包编写器**（`oclive-pack-editor`）与 **oclive 运行时**（例如 `oclivenewnew`）的启动方式，把子进程 **stdout / stderr** 收到本窗口，避免弹出多个控制台；支持 **公告栏**、**GitHub Release 版本检查** 与 **打开发布页**（便于下载安装包）。
+独立 **桌面启动器**（Tauri 1.x + Vue 3 + TypeScript）：集中管理 **角色包编写器**（`oclive-pack-editor`）与 **oclive 运行时**（例如 `oclivenewnew`）的启动方式，把子进程 **stdout / stderr** 收到本窗口，避免弹出多个控制台；支持 **公告栏**、**GitHub Release 版本检查** 与 **打开发布页**（便于下载安装包）。界面与 **oclive-pack-editor** 共用 **Fluent Design** 变量（与工作区 **ok-ww / qfluentwidgets** 的层次、强调色一脉）。
 
 ## 功能概览
 

@@ -1,46 +1,107 @@
+/**
+ * 与 oclive-pack-editor 对齐：Fluent Design（参考工作区 ok-ww / qfluentwidgets 的层次与强调色）。
+ */
 :root {
-  --bg: #f3f3f5;
-  --card: #ffffff;
-  --text: #1a1a1e;
-  --muted: #5c5c66;
-  --border: #e0e0e6;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --accent: #0078d4;
-  --input-bg: #fff;
-  --btn-bg: #f0f0f3;
-  --danger-bg: #fde7e9;
-  --danger-text: #c42b1c;
+  --fluent-bg-page: #f0f4f9;
+  --fluent-bg-card: #ffffff;
+  --fluent-bg-subtle: #f5f5f5;
+  --fluent-bg-input: #ffffff;
+  --fluent-border-stroke: #edebe9;
+  --fluent-border-control: #d2d0ce;
+  --fluent-border-focus: #0078d4;
+  --fluent-shadow-card: 0 0.3px 0.9px rgba(0, 0, 0, 0.08), 0 1.6px 3.6px rgba(0, 0, 0, 0.12);
+  --fluent-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.06);
+
+  --fluent-text-primary: #323130;
+  --fluent-text-secondary: #605e5c;
+  --fluent-text-disabled: #a19f9d;
+
+  --fluent-accent: #0078d4;
+  --fluent-accent-hover: #106ebe;
+  --fluent-accent-subtle: rgba(0, 120, 212, 0.12);
+
+  --fluent-danger-bg: #fde7e9;
+  --fluent-danger-border: #d13438;
+  --fluent-danger-text: #a4262c;
+
+  --fluent-success-text: #107c10;
+
+  --fluent-warning-bg: #fff4ce;
+  --fluent-warning-border: #e0c76a;
+  --fluent-warning-text: #8a4b00;
+
+  --fluent-radius: 4px;
+  --fluent-radius-lg: 8px;
+  --fluent-font: 'Segoe UI', 'Segoe UI Variable', 'Microsoft YaHei', system-ui, sans-serif;
+  --fluent-mono: 'Cascadia Code', 'Consolas', ui-monospace, monospace;
+
+  font-family: var(--fluent-font);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fluent-text-primary);
+  background: var(--fluent-bg-page);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1c1c1e;
-    --card: #2c2c2e;
-    --text: #f2f2f7;
-    --muted: #a0a0a8;
-    --border: #3a3a3e;
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-    --accent: #60a5fa;
-    --input-bg: #1c1c1e;
-    --btn-bg: #3a3a3e;
-    --danger-bg: #4a2528;
-    --danger-text: #fca5a5;
+    --fluent-bg-page: #202020;
+    --fluent-bg-card: #2d2d2d;
+    --fluent-bg-subtle: #3b3b3b;
+    --fluent-bg-input: #292929;
+    --fluent-border-stroke: #3f3f3f;
+    --fluent-border-control: #575757;
+    --fluent-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --fluent-shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.4);
+
+    --fluent-text-primary: #f3f2f1;
+    --fluent-text-secondary: #d2d0ce;
+    --fluent-text-disabled: #8a8886;
+
+    --fluent-accent-subtle: rgba(0, 120, 212, 0.25);
+
+    --fluent-danger-bg: #442726;
+    --fluent-danger-border: #f1707b;
+    --fluent-danger-text: #f9a7ad;
+
+    --fluent-success-text: #92c353;
+
+    --fluent-warning-bg: #433519;
+    --fluent-warning-border: #c19c23;
+    --fluent-warning-text: #ffd44d;
   }
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
+  background: var(--fluent-bg-page);
+}
+
+#app {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--fluent-font);
+  font-weight: 600;
+  color: var(--fluent-text-primary);
 }
 
 code {
-  font-size: 0.9em;
-  padding: 0.1em 0.3em;
-  border-radius: 4px;
-  background: var(--btn-bg);
+  font-family: var(--fluent-mono);
+  font-size: 0.88em;
+  padding: 0.1em 0.35em;
+  border-radius: var(--fluent-radius);
+  background: var(--fluent-bg-subtle);
+  border: 1px solid var(--fluent-border-stroke);
 }

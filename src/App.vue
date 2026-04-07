@@ -1,5 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+
+const VIEW_LABELS: Record<string, string> = {
+  announce: '公告栏',
+  version: '版本与更新',
+  apps: '启动应用',
+  logs: '运行日志',
+}
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
@@ -207,6 +214,21 @@ function clearLogs() {
   logs.value = []
 }
 
+const navItems = [
+  { id: 'announce', label: '公告', icon: '📢' },
+  { id: 'version', label: '版本', icon: '📦' },
+  { id: 'apps', label: '启动', icon: '▶' },
+  { id: 'logs', label: '日志', icon: '📋' },
+] as const
+
+const activeNav = ref<string>('announce')
+
+const currentViewLabel = computed(() => VIEW_LABELS[activeNav.value] ?? '')
+
+function setView(id: string) {
+  activeNav.value = id
+}
+
 onMounted(async () => {
   await loadAll()
   unlistenLog = await listen<{ app: string; stream: string; line: string }>(
@@ -229,30 +251,62 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="shell">
-    <header class="top">
-      <div>
-        <h1>oclive 启动器</h1>
-        <p class="sub">
-          下载与版本信息、公告、启动编写器与 oclive；子进程日志集中在下方，不再弹出多个终端窗口。
-        </p>
-      </div>
-      <div class="top-actions">
-        <button type="button" class="btn primary" @click="saveConfig">保存配置</button>
-      </div>
-    </header>
+  <div class="fluent-root">
+    <aside class="rail" aria-label="区块导航">
+      <button
+        v-for="item in navItems"
+        :key="item.id"
+        type="button"
+        class="rail-btn"
+        :class="{ active: activeNav === item.id }"
+        @click="setView(item.id)"
+      >
+        <span class="rail-ico" aria-hidden="true">{{ item.icon }}</span>
+        <span class="rail-lbl">{{ item.label }}</span>
+      </button>
+    </aside>
 
-    <p v-if="statusMsg" class="status">{{ statusMsg }}</p>
+    <div class="main-col">
+      <header class="titlebar">
+        <div class="titlebar-inner">
+          <div>
+            <p class="kicker">oclive · 工具链</p>
+            <h1>{{ currentViewLabel }}</h1>
+            <p class="sub">
+              <template v-if="activeNav === 'announce'">编辑面向创作者的通知；与版本、启动、日志互不干扰，按需切换左侧栏目。</template>
+              <template v-else-if="activeNav === 'version'">对照 GitHub Release 与本地 package.json 版本。</template>
+              <template v-else-if="activeNav === 'apps'">配置并启动角色包编写器与 oclive 运行时（无额外终端窗口）。</template>
+              <template v-else>查看子进程输出；筛选编写器或 oclive。</template>
+            </p>
+          </div>
+          <button type="button" class="btn primary" @click="saveConfig">保存配置</button>
+        </div>
+      </header>
 
-    <div class="grid">
-      <section class="card">
+      <nav class="mobile-nav" aria-label="栏目切换">
+        <button
+          v-for="item in navItems"
+          :key="'m-' + item.id"
+          type="button"
+          class="mobile-nav-btn"
+          :class="{ active: activeNav === item.id }"
+          @click="setView(item.id)"
+        >
+          {{ item.icon }} {{ item.label }}
+        </button>
+      </nav>
+
+      <p v-if="statusMsg" class="status">{{ statusMsg }}</p>
+
+      <div class="scroll-main">
+        <section v-if="activeNav === 'announce'" class="view-panel card">
         <h2>公告栏</h2>
         <p class="hint">编辑后点击保存；内容存于本机应用配置目录，便于你写面向创作者的通知。</p>
-        <textarea v-model="announcements" class="announce" rows="12" spellcheck="false" />
+        <textarea v-model="announcements" class="announce" rows="14" spellcheck="false" />
         <button type="button" class="btn" @click="saveAnnouncements">保存公告</button>
       </section>
 
-      <section class="card">
+      <section v-else-if="activeNav === 'version'" class="view-panel card">
         <h2>版本与更新</h2>
         <p class="hint">
           填写 GitHub <code>owner</code> / <code>repo</code> 后点「检查更新」，拉取最新 Release
@@ -304,9 +358,8 @@ onUnmounted(() => {
         <p v-if="checkErr" class="err">{{ checkErr }}</p>
         <button type="button" class="btn primary" @click="checkReleases">检查更新</button>
       </section>
-    </div>
 
-    <div class="grid grid-2">
+    <div v-else-if="activeNav === 'apps'" class="view-panel grid grid-2">
       <section class="card">
         <h2>角色包编写器</h2>
         <div class="mode">
@@ -364,7 +417,7 @@ onUnmounted(() => {
       </section>
     </div>
 
-    <section class="card log-card">
+    <section v-else-if="activeNav === 'logs'" class="view-panel card log-card">
       <div class="log-head">
         <h2>运行日志（子进程 stdout / stderr）</h2>
         <div class="log-tools">
@@ -379,49 +432,141 @@ onUnmounted(() => {
       </div>
       <pre class="log">{{ filteredLogs.map((l) => `[${l.app}][${l.stream}] ${l.line}`).join('\n') }}</pre>
     </section>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.shell {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 1rem 1.25rem 2rem;
-  font-family:
-    'Segoe UI',
-    system-ui,
-    sans-serif;
-  color: var(--text);
-  background: var(--bg);
+.fluent-root {
+  display: flex;
   min-height: 100vh;
+  font-family: var(--fluent-font);
+  color: var(--fluent-text-primary);
+  background: var(--fluent-bg-page);
 }
 
-.top {
+.rail {
+  width: 76px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 0.4rem;
+  border-right: 1px solid var(--fluent-border-stroke);
+  background: var(--fluent-bg-card);
+  box-shadow: var(--fluent-shadow-soft);
+}
+
+.rail-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.45rem 0.2rem;
+  border: none;
+  border-radius: var(--fluent-radius-lg);
+  background: transparent;
+  color: var(--fluent-text-secondary);
+  cursor: pointer;
+  font-size: 0.65rem;
+  font-weight: 500;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.rail-btn:hover {
+  background: var(--fluent-bg-subtle);
+  color: var(--fluent-text-primary);
+}
+
+.rail-btn.active {
+  background: var(--fluent-accent-subtle);
+  color: var(--fluent-accent);
+}
+
+.rail-ico {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.rail-lbl {
+  line-height: 1.1;
+  text-align: center;
+}
+
+.main-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.titlebar {
+  flex-shrink: 0;
+  padding: 1rem 1.35rem 0;
+  border-bottom: 1px solid var(--fluent-border-stroke);
+  background: linear-gradient(180deg, var(--fluent-bg-card) 0%, var(--fluent-bg-page) 100%);
+}
+
+.titlebar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0.5rem;
+  padding-bottom: 1rem;
 }
 
-.top h1 {
-  margin: 0;
-  font-size: 1.35rem;
+.titlebar h1 {
+  margin: 0.15rem 0 0;
+  font-size: 1.5rem;
   font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fluent-accent);
 }
 
 .sub {
-  margin: 0.35rem 0 0;
-  font-size: 0.88rem;
-  color: var(--muted);
-  max-width: 52rem;
+  margin: 0.4rem 0 0;
+  max-width: 48rem;
+  font-size: 0.875rem;
+  color: var(--fluent-text-secondary);
+  line-height: 1.5;
 }
 
 .status {
-  margin: 0 0 0.75rem;
-  font-size: 0.85rem;
-  color: var(--accent);
+  flex-shrink: 0;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0.35rem 1.35rem 0;
+  font-size: 0.8125rem;
+  color: var(--fluent-accent);
+}
+
+.scroll-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.35rem 2rem;
+}
+
+.scroll-main > .view-panel {
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
 }
 
 .grid {
@@ -431,9 +576,41 @@ onUnmounted(() => {
   margin-bottom: 1rem;
 }
 
+.mobile-nav {
+  display: none;
+}
+
+.mobile-nav-btn {
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-stroke);
+  background: var(--fluent-bg-card);
+  color: var(--fluent-text-primary);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.mobile-nav-btn.active {
+  border-color: var(--fluent-accent);
+  background: var(--fluent-accent-subtle);
+  color: var(--fluent-accent);
+}
+
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
+  }
+  .rail {
+    display: none;
+  }
+  .mobile-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 1.35rem 0.5rem;
   }
 }
 
@@ -441,55 +618,78 @@ onUnmounted(() => {
   grid-template-columns: 1fr 1fr;
 }
 
+@media (max-width: 900px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
 .card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1rem 1.1rem;
-  box-shadow: var(--shadow);
+  scroll-margin-top: 0.75rem;
+  background: var(--fluent-bg-card);
+  border: 1px solid var(--fluent-border-stroke);
+  border-radius: var(--fluent-radius-lg);
+  padding: 1rem 1.15rem;
+  box-shadow: var(--fluent-shadow-card);
 }
 
 .card h2 {
   margin: 0 0 0.5rem;
   font-size: 1rem;
+  font-weight: 600;
 }
 
 .hint {
   margin: 0 0 0.75rem;
-  font-size: 0.8rem;
-  color: var(--muted);
+  font-size: 0.8125rem;
+  color: var(--fluent-text-secondary);
   line-height: 1.45;
 }
 
 .announce {
   width: 100%;
   box-sizing: border-box;
-  font-family: ui-monospace, monospace;
+  font-family: var(--fluent-mono);
   font-size: 0.85rem;
   margin-bottom: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  padding: 0.5rem 0.6rem;
-  background: var(--input-bg);
-  color: var(--text);
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-control);
+  padding: 0.5rem 0.65rem;
+  background: var(--fluent-bg-input);
+  color: var(--fluent-text-primary);
+}
+
+.announce:focus {
+  outline: none;
+  border-color: var(--fluent-border-focus);
+  box-shadow: 0 0 0 1px var(--fluent-border-focus);
 }
 
 label {
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 600;
   margin-top: 0.5rem;
   margin-bottom: 0.2rem;
-  color: var(--muted);
+  color: var(--fluent-text-secondary);
 }
 
 input[type='text'] {
   width: 100%;
   box-sizing: border-box;
+  min-height: 32px;
   padding: 0.35rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--text);
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-control);
+  background: var(--fluent-bg-input);
+  color: var(--fluent-text-primary);
+  font-size: 0.875rem;
+}
+
+input[type='text']:focus {
+  outline: none;
+  border-color: var(--fluent-border-focus);
+  box-shadow: 0 0 0 1px var(--fluent-border-focus);
 }
 
 .gh-row {
@@ -516,12 +716,12 @@ input[type='text'] {
 }
 
 .ver-line span {
-  color: var(--muted);
+  color: var(--fluent-text-secondary);
 }
 
 .sep {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--fluent-border-stroke);
   margin: 0.75rem 0;
 }
 
@@ -529,7 +729,7 @@ input[type='text'] {
   display: flex;
   gap: 1rem;
   margin-bottom: 0.5rem;
-  font-size: 0.88rem;
+  font-size: 0.875rem;
 }
 
 .mode label {
@@ -537,6 +737,7 @@ input[type='text'] {
   align-items: center;
   gap: 0.35rem;
   margin: 0;
+  font-weight: 500;
 }
 
 .row {
@@ -551,38 +752,57 @@ input[type='text'] {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.75rem;
 }
 
 .btn {
-  padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--btn-bg);
-  color: var(--text);
+  padding: 0.45rem 0.9rem;
+  min-height: 32px;
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-control);
+  background: var(--fluent-bg-card);
+  color: var(--fluent-text-primary);
   cursor: pointer;
-  font-size: 0.88rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--fluent-font);
+  box-shadow: var(--fluent-shadow-soft);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .btn:hover {
-  filter: brightness(1.05);
+  background: var(--fluent-bg-subtle);
+  border-color: var(--fluent-text-secondary);
 }
 
 .btn.primary {
-  background: var(--accent);
+  background: var(--fluent-accent);
   color: #fff;
   border-color: transparent;
+  box-shadow: var(--fluent-shadow-soft);
+}
+
+.btn.primary:hover {
+  background: var(--fluent-accent-hover);
 }
 
 .btn.danger {
-  background: var(--danger-bg);
-  color: var(--danger-text);
-  border-color: transparent;
+  background: var(--fluent-danger-bg);
+  color: var(--fluent-danger-text);
+  border-color: var(--fluent-danger-border);
+}
+
+.btn.danger:hover {
+  filter: brightness(1.03);
 }
 
 .btn.tiny {
-  padding: 0.15rem 0.45rem;
+  padding: 0.2rem 0.5rem;
+  min-height: 0;
   font-size: 0.78rem;
 }
 
@@ -606,30 +826,46 @@ input[type='text'] {
   font-size: 0.85rem;
 }
 
+.log-tools label {
+  display: inline;
+  margin: 0;
+  font-weight: 500;
+}
+
 .log-tools select {
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  padding: 0.25rem 0.4rem;
-  background: var(--input-bg);
-  color: var(--text);
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-control);
+  padding: 0.3rem 0.45rem;
+  background: var(--fluent-bg-input);
+  color: var(--fluent-text-primary);
+  font-size: 0.875rem;
 }
 
 .log {
   margin: 0;
-  max-height: 320px;
+  max-height: 340px;
   overflow: auto;
-  padding: 0.6rem 0.75rem;
-  background: #0f1419;
-  color: #d8dee9;
-  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  background: #1b1b1b;
+  color: #e8e8e8;
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-stroke);
+  font-family: var(--fluent-mono);
   font-size: 0.72rem;
-  line-height: 1.4;
+  line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+@media (prefers-color-scheme: dark) {
+  .log {
+    background: #0c0c0c;
+    color: #d4d4d4;
+  }
+}
+
 .err {
-  color: var(--danger-text);
+  color: var(--fluent-danger-text);
   font-size: 0.85rem;
 }
 </style>
