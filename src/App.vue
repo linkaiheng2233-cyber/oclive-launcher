@@ -5,6 +5,7 @@ const VIEW_LABELS: Record<string, string> = {
   announce: '公告栏',
   version: '版本与更新',
   apps: '启动应用',
+  assistant: '环境与排障',
   logs: '运行日志',
 }
 import { invoke } from '@tauri-apps/api/tauri'
@@ -40,6 +41,17 @@ interface LogLine {
   ts: number
 }
 
+interface EnvDiagnostics {
+  nodeVersion: string | null
+  npmVersion: string | null
+  ollamaVersion: string | null
+  ollamaApiReachable: boolean
+  editorProjectOk: boolean
+  editorPackageJson: boolean
+  ocliveProjectOk: boolean
+  oclivePackageJson: boolean
+}
+
 const config = ref<LauncherConfig>({
   editorProjectRoot: '',
   editorExe: '',
@@ -66,6 +78,8 @@ const ocliveLocalVer = ref<string | null>(null)
 const editorRemote = ref<ReleaseInfo | null>(null)
 const ocliveRemote = ref<ReleaseInfo | null>(null)
 const checkErr = ref('')
+const envDiag = ref<EnvDiagnostics | null>(null)
+const envDiagErr = ref('')
 
 let unlistenLog: UnlistenFn | undefined
 let unlistenExit: UnlistenFn | undefined
@@ -210,6 +224,41 @@ async function openRelease(url: string) {
   }
 }
 
+async function runEnvironmentDiagnose() {
+  envDiagErr.value = ''
+  try {
+    envDiag.value = await invoke<EnvDiagnostics>('diagnose_environment', {
+      config: config.value,
+    })
+    statusMsg.value = '环境检测完成'
+  } catch (e) {
+    envDiagErr.value = String(e)
+    envDiag.value = null
+  }
+}
+
+async function resetLauncherConfig() {
+  if (!confirm('将清空启动器内保存的路径与 GitHub 仓库设置，并恢复默认。是否继续？')) return
+  try {
+    const c = await invoke<LauncherConfig>('reset_config_to_default')
+    config.value = { ...config.value, ...c }
+    envDiag.value = null
+    statusMsg.value = '已重置为默认配置（若原文件损坏，同目录下可能有 .corrupt.bak 备份）'
+    await refreshLocalVersions()
+  } catch (e) {
+    statusMsg.value = String(e)
+  }
+}
+
+async function openLauncherConfigFolder() {
+  try {
+    await invoke('open_config_directory')
+    statusMsg.value = '已尝试打开配置目录（含 launcher-config.json）'
+  } catch (e) {
+    statusMsg.value = String(e)
+  }
+}
+
 function clearLogs() {
   logs.value = []
 }
@@ -218,6 +267,7 @@ const navItems = [
   { id: 'announce', label: '公告', icon: '📢' },
   { id: 'version', label: '版本', icon: '📦' },
   { id: 'apps', label: '启动', icon: '▶' },
+  { id: 'assistant', label: '环境', icon: '🩺' },
   { id: 'logs', label: '日志', icon: '📋' },
 ] as const
 
@@ -276,6 +326,7 @@ onUnmounted(() => {
               <template v-if="activeNav === 'announce'">编辑面向创作者的通知；与版本、启动、日志互不干扰，按需切换左侧栏目。</template>
               <template v-else-if="activeNav === 'version'">对照 GitHub Release 与本地 package.json 版本。</template>
               <template v-else-if="activeNav === 'apps'">配置并启动角色包编写器与 oclive 运行时（无额外终端窗口）。</template>
+              <template v-else-if="activeNav === 'assistant'">检测 Node / npm / Ollama 与项目路径，降低上手门槛；复杂问题仍见 README 与上游文档。</template>
               <template v-else>查看子进程输出；筛选编写器或 oclive。</template>
             </p>
           </div>
@@ -357,6 +408,78 @@ onUnmounted(() => {
 
         <p v-if="checkErr" class="err">{{ checkErr }}</p>
         <button type="button" class="btn primary" @click="checkReleases">检查更新</button>
+      </section>
+
+    <section v-else-if="activeNav === 'assistant'" class="view-panel card">
+        <h2>环境与排障</h2>
+        <p class="hint">
+          启动前可点「重新检测」：确认本机已安装 <strong>Node.js</strong> / <strong>npm</strong>（开发模式必需），以及
+          <strong>Ollama</strong> 是否在运行（oclive 对话默认走本地模型）。若配置文件损坏，可用「一键重置启动器配置」恢复默认，原文件会尽量备份为
+          <code>launcher-config.json.corrupt.bak</code>。
+        </p>
+        <div class="assistant-actions">
+          <button type="button" class="btn primary" @click="runEnvironmentDiagnose">重新检测</button>
+          <button type="button" class="btn" @click="openLauncherConfigFolder">打开配置目录</button>
+          <button type="button" class="btn danger" @click="resetLauncherConfig">一键重置启动器配置</button>
+        </div>
+        <p v-if="envDiagErr" class="err">{{ envDiagErr }}</p>
+        <table v-if="envDiag" class="diag-table">
+          <tbody>
+            <tr>
+              <th>Node</th>
+              <td :class="{ ok: !!envDiag.nodeVersion, bad: !envDiag.nodeVersion }">
+                {{ envDiag.nodeVersion ?? '未检测到（请安装 Node.js LTS 并加入 PATH）' }}
+              </td>
+            </tr>
+            <tr>
+              <th>npm</th>
+              <td :class="{ ok: !!envDiag.npmVersion, bad: !envDiag.npmVersion }">
+                {{ envDiag.npmVersion ?? '未检测到' }}
+              </td>
+            </tr>
+            <tr>
+              <th>Ollama CLI</th>
+              <td :class="{ ok: !!envDiag.ollamaVersion, bad: !envDiag.ollamaVersion }">
+                {{ envDiag.ollamaVersion ?? '未在 PATH 中找到 ollama（可仍通过服务运行）' }}
+              </td>
+            </tr>
+            <tr>
+              <th>Ollama API</th>
+              <td :class="{ ok: envDiag.ollamaApiReachable, bad: !envDiag.ollamaApiReachable }">
+                {{
+                  envDiag.ollamaApiReachable
+                    ? '127.0.0.1:11434 可访问'
+                    : '不可访问（请启动 Ollama 服务）'
+                }}
+              </td>
+            </tr>
+            <tr>
+              <th>编写器目录</th>
+              <td :class="{ ok: envDiag.editorProjectOk && envDiag.editorPackageJson, bad: !envDiag.editorProjectOk }">
+                <template v-if="!config.editorProjectRoot?.trim()">未填写（开发模式需填写项目根）</template>
+                <template v-else-if="!envDiag.editorProjectOk">路径不存在或不是文件夹</template>
+                <template v-else-if="!envDiag.editorPackageJson">缺少 package.json</template>
+                <template v-else>正常</template>
+              </td>
+            </tr>
+            <tr>
+              <th>oclive 目录</th>
+              <td :class="{ ok: envDiag.ocliveProjectOk && envDiag.oclivePackageJson, bad: !envDiag.ocliveProjectOk }">
+                <template v-if="!config.ocliveProjectRoot?.trim()">未填写（开发模式需填写项目根）</template>
+                <template v-else-if="!envDiag.ocliveProjectOk">路径不存在或不是文件夹</template>
+                <template v-else-if="!envDiag.oclivePackageJson">缺少 package.json</template>
+                <template v-else>正常</template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="hint assistant-links">
+          <button type="button" class="linkish" @click="openRelease('https://nodejs.org/')">Node.js 下载</button>
+          ·
+          <button type="button" class="linkish" @click="openRelease('https://ollama.com/download')">Ollama 下载</button>
+          ·
+          <button type="button" class="linkish" @click="openRelease('https://github.com/ollama/ollama')">Ollama 文档</button>
+        </p>
       </section>
 
     <div v-else-if="activeNav === 'apps'" class="view-panel grid grid-2">
@@ -867,5 +990,60 @@ input[type='text']:focus {
 .err {
   color: var(--fluent-danger-text);
   font-size: 0.85rem;
+}
+
+.assistant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.diag-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.diag-table th {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.4rem 0.75rem 0.4rem 0;
+  color: var(--fluent-text-secondary);
+  font-weight: 600;
+  width: 7.5rem;
+}
+
+.diag-table td {
+  padding: 0.4rem 0;
+  line-height: 1.4;
+}
+
+.diag-table td.ok {
+  color: #107c10;
+}
+
+.diag-table td.bad {
+  color: var(--fluent-danger-text);
+}
+
+.assistant-links {
+  margin-top: 0.75rem;
+}
+
+.linkish {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--fluent-accent);
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+  font-family: inherit;
+}
+
+.linkish:hover {
+  color: var(--fluent-accent-hover);
 }
 </style>

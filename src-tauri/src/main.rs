@@ -93,7 +93,14 @@ fn load_config(app: tauri::AppHandle) -> Result<LauncherConfig, String> {
         return Ok(LauncherConfig::default());
     }
     let s = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&s).map_err(|e| e.to_string())
+    match serde_json::from_str::<LauncherConfig>(&s) {
+        Ok(c) => Ok(c),
+        Err(_) => {
+            let bak = path.with_extension("json.corrupt.bak");
+            let _ = std::fs::copy(&path, &bak);
+            Ok(LauncherConfig::default())
+        }
+    }
 }
 
 #[tauri::command]
@@ -208,6 +215,112 @@ fn open_url(url: String) -> Result<(), String> {
         return Err("空链接".into());
     }
     open::that(&url).map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EnvDiagnostics {
+    node_version: Option<String>,
+    npm_version: Option<String>,
+    ollama_version: Option<String>,
+    ollama_api_reachable: bool,
+    editor_project_ok: bool,
+    editor_package_json: bool,
+    oclive_project_ok: bool,
+    oclive_package_json: bool,
+}
+
+fn try_cmd_version(program: &str, args: &[&str]) -> Option<String> {
+    let mut c = Command::new(program);
+    c.args(args);
+    c.stdout(Stdio::piped());
+    c.stderr(Stdio::piped());
+    #[cfg(windows)]
+    c.creation_flags(CREATE_NO_WINDOW);
+    let out = c.output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let a = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    let b = String::from_utf8_lossy(&out.stderr).trim().to_string();
+    let merged = if !a.is_empty() { a } else { b };
+    if merged.is_empty() {
+        None
+    } else {
+        Some(merged)
+    }
+}
+
+fn ollama_api_reachable() -> bool {
+    let client = match reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(2))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    client
+        .get("http://127.0.0.1:11434/api/tags")
+        .send()
+        .map(|r| r.status().is_success())
+        .unwrap_or(false)
+}
+
+fn dir_has_package_json(root: &str) -> (bool, bool) {
+    let p = PathBuf::from(root.trim());
+    if !p.is_dir() {
+        return (false, false);
+    }
+    let pkg = p.join("package.json");
+    (true, pkg.is_file())
+}
+
+/// 检测 Node / npm / Ollama 与当前填写的项目路径（便于「傻瓜化」排障，对标一键向导思路）。
+#[tauri::command]
+fn diagnose_environment(config: LauncherConfig) -> EnvDiagnostics {
+    let node = try_cmd_version("node", &["--version"]);
+    let npm = try_cmd_version("npm", &["--version"]);
+    let ollama_v = try_cmd_version("ollama", &["--version"]);
+    let ollama_api = ollama_api_reachable();
+    let (ed_ok, ed_pkg) = if config.editor_project_root.trim().is_empty() {
+        (false, false)
+    } else {
+        dir_has_package_json(&config.editor_project_root)
+    };
+    let (oc_ok, oc_pkg) = if config.oclive_project_root.trim().is_empty() {
+        (false, false)
+    } else {
+        dir_has_package_json(&config.oclive_project_root)
+    };
+    EnvDiagnostics {
+        node_version: node,
+        npm_version: npm,
+        ollama_version: ollama_v,
+        ollama_api_reachable: ollama_api,
+        editor_project_ok: ed_ok,
+        editor_package_json: ed_pkg,
+        oclive_project_ok: oc_ok,
+        oclive_package_json: oc_pkg,
+    }
+}
+
+#[tauri::command]
+fn reset_config_to_default(app: tauri::AppHandle) -> Result<LauncherConfig, String> {
+    let c = LauncherConfig::default();
+    save_config(app, c.clone())?;
+    Ok(c)
+}
+
+#[tauri::command]
+fn open_config_directory(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = app
+        .path_resolver()
+        .app_config_dir()
+        .ok_or_else(|| "无法解析应用配置目录".to_string())?;
+    if !dir.is_dir() {
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+    open::that(&dir).map_err(|e| e.to_string())
 }
 
 fn validate_npm_script(s: &str) -> Result<(), String> {
@@ -450,6 +563,9 @@ fn main() {
             read_package_version,
             fetch_github_release,
             open_url,
+            diagnose_environment,
+            reset_config_to_default,
+            open_config_directory,
             spawn_managed_app,
             stop_managed_app,
         ])
