@@ -66,9 +66,9 @@ const config = ref<LauncherConfig>({
   ocliveExe: '',
   ocliveMode: 'dev',
   ocliveNpmScript: 'tauri:dev',
-  githubEditorOwner: 'supermumu',
+  githubEditorOwner: 'linkaiheng2233-cyber',
   githubEditorRepo: 'oclive-pack-editor',
-  githubOcliveOwner: 'supermumu',
+  githubOcliveOwner: 'linkaiheng2233-cyber',
   githubOcliveRepo: 'oclivenewnew',
   ocliveRolesDir: '',
 })
@@ -423,14 +423,14 @@ async function maybeFirstLaunchAutoDiagnose() {
 const releasesEditorUrl = computed(() => {
   const o = config.value.githubEditorOwner.trim()
   const r = config.value.githubEditorRepo.trim()
-  if (!o || !r) return 'https://github.com/supermumu/oclive-pack-editor/releases'
+  if (!o || !r) return 'https://github.com/linkaiheng2233-cyber/oclive-pack-editor/releases'
   return `https://github.com/${o}/${r}/releases`
 })
 
 const releasesOcliveUrl = computed(() => {
   const o = config.value.githubOcliveOwner.trim()
   const r = config.value.githubOcliveRepo.trim()
-  if (!o || !r) return 'https://github.com/supermumu/oclivenewnew/releases'
+  if (!o || !r) return 'https://github.com/linkaiheng2233-cyber/oclivenewnew/releases'
   return `https://github.com/${o}/${r}/releases`
 })
 

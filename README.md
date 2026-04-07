@@ -1,6 +1,6 @@
 # oclive 启动器
 
-[![CI](https://github.com/supermumu/oclive-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/supermumu/oclive-launcher/actions/workflows/ci.yml)
+[![CI](https://github.com/linkaiheng2233-cyber/oclive-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/linkaiheng2233-cyber/oclive-launcher/actions/workflows/ci.yml)
 
 独立 **桌面启动器**（Tauri 1.x + Vue 3 + TypeScript）：作为 **oclive 工具链的统一入口**，集中管理 **角色包编写器**（`oclive-pack-editor`）与 **oclive 运行时**（例如 `oclivenewnew`）的启动方式，把子进程 **stdout / stderr** 收到本窗口，避免弹出多个控制台；支持 **公告栏**、**GitHub Release 版本检查** 与 **打开发布页**。
 
@@ -10,8 +10,8 @@
 
 | 仓库 | 说明 |
 |------|------|
-| [oclivenewnew](https://github.com/supermumu/oclivenewnew) | 运行时、HTTP API、`creator-docs` 与角色契约 |
-| [oclive-pack-editor](https://github.com/supermumu/oclive-pack-editor) | 角色包编写器（导出与校验） |
+| [oclivenewnew](https://github.com/linkaiheng2233-cyber/oclivenewnew) | 运行时、HTTP API、`creator-docs` 与角色契约 |
+| [oclive-pack-editor](https://github.com/linkaiheng2233-cyber/oclive-pack-editor) | 角色包编写器（导出与校验） |
 
 本地开发时可将三仓 **同级克隆**（例如 `D:\oclivenewnew`、`D:\oclive-pack-editor`、`D:\oclive-launcher`），在启动器里填写相对路径即可。
 
@@ -22,7 +22,7 @@
 | 步骤 | 做什么 |
 |------|--------|
 | 1 | 安装 **Node.js LTS**、**Ollama**（本地对话默认依赖本机模型）。 |
-| 2 | 获取三个应用：克隆或下载 [oclivenewnew](https://github.com/supermumu/oclivenewnew)、[oclive-pack-editor](https://github.com/supermumu/oclive-pack-editor)、本仓库；或使用各仓库 **Release** 构建的 `.exe`。 |
+| 2 | 获取三个应用：克隆或下载 [oclivenewnew](https://github.com/linkaiheng2233-cyber/oclivenewnew)、[oclive-pack-editor](https://github.com/linkaiheng2233-cyber/oclive-pack-editor)、本仓库；或使用各仓库 **Release** 构建的 `.exe`。 |
 | 3 | 打开本启动器，在 **「启动」** 中填写 **编写器**与 **oclive 运行时** 的项目根（开发模式）或可执行文件路径（exe 模式）。 |
 | 4 | 在同一页的 **oclive 运行时** 卡片中填写 **角色包根目录**（环境变量 **`OCLIVE_ROLES_DIR`**）。若 oclive 项目为克隆的 `oclivenewnew`，可点 **「从 oclive 仓库填入」** 自动填入仓库内 `roles/`。启动 oclive 时由启动器注入该变量；留空则不在此注入（你也可在系统环境中自行设置）。 |
 | 5 | 用编写器编辑或导入包并 **导出 zip**，解压到 `OCLIVE_ROLES_DIR/某角色id/`；或使用编写器 **「写入文件夹」** 直接写入该根目录。 |

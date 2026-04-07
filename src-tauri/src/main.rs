@@ -52,7 +52,7 @@ fn default_npm() -> String {
 }
 
 /// 上游仓库占位（用户可改为自己的 fork；仅当 owner+repo 均为空时由 `load_config` 填入）。
-const UPSTREAM_GITHUB_OWNER: &str = "supermumu";
+const UPSTREAM_GITHUB_OWNER: &str = "linkaiheng2233-cyber";
 const UPSTREAM_EDITOR_REPO: &str = "oclive-pack-editor";
 const UPSTREAM_OCLIVE_REPO: &str = "oclivenewnew";
 
