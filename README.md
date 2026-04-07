@@ -1,5 +1,7 @@
 # oclive 启动器
 
+[![CI](https://github.com/linkaiheng2233-cyber/oclive-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/linkaiheng2233-cyber/oclive-launcher/actions/workflows/ci.yml)
+
 独立 **桌面启动器**（Tauri 1.x + Vue 3 + TypeScript）：作为 **oclive 工具链的统一入口**，集中管理 **角色包编写器**（`oclive-pack-editor`）与 **oclive 运行时**（例如 `oclivenewnew`）的启动方式，把子进程 **stdout / stderr** 收到本窗口，避免弹出多个控制台；支持 **公告栏**、**GitHub Release 版本检查** 与 **打开发布页**。
 
 设计取向：在参考「绘世」等成熟启动器 **开箱即用、保姆式排障、一站式管理** 的思路的同时，结合 oclive **开源、角色包为纽带、双软件分工** 的特点，逐步增强——**不追求像素级复刻**，优先把 **路径配置、依赖可见性、错误可恢复** 做扎实。
