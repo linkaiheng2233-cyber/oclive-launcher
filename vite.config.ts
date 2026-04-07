@@ -7,6 +7,8 @@ export default defineConfig({
   base: './',
   clearScreen: false,
   server: {
+    // 与 tauri.conf.json 的 devPath（127.0.0.1）一致，避免 Tauri 卡在 Waiting for dev server
+    host: '127.0.0.1',
     port: 5174,
     strictPort: true,
   },

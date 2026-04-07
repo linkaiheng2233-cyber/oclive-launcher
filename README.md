@@ -18,6 +18,8 @@
 
 ## 命令
 
+**Windows**：根目录 **`start.bat`** 双击即可（默认 `npm run tauri:dev`）；`start.bat web` 仅浏览器预览 `http://127.0.0.1:5174`（无 Tauri 能力）。
+
 ```bash
 npm install
 npm run tauri:dev    # 开发：Vite 端口 5174
