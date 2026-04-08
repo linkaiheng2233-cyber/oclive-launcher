@@ -84,7 +84,9 @@ const config = ref<LauncherConfig>({
 
 const announcements = ref('')
 const statusMsg = ref('')
-const logFilter = ref<'all' | 'editor' | 'oclive' | 'ollama'>('all')
+const logFilter = ref<
+  'all' | 'editor' | 'oclive' | 'ollama' | 'winget' | 'bundled-ollama'
+>('all')
 const logs = ref<LogLine[]>([])
 const MAX_LOG = 4000
 
@@ -108,6 +110,10 @@ const installOverwriteModel = ref(false)
 const ollamaLocalModels = ref<string[]>([])
 const installBusy = ref(false)
 const pullBusy = ref(false)
+const wingetAvailable = ref(false)
+const wingetInstallBusy = ref(false)
+/** 非空表示打包内含有 bundled/ollama/OllamaSetup.exe（仅 Windows） */
+const bundledOllamaPath = ref<string | null>(null)
 
 const installModelOptions = computed(() => {
   const opts: { value: string; label: string }[] = [
@@ -131,8 +137,16 @@ const effectiveInstallModel = computed(() => {
   return installModelSelect.value.trim()
 })
 
-/** 未检测到 Ollama CLI 或 API 不可达时，提示安装 */
+/** 开发模式依赖 Node / npm */
+const nodeNeedsAttention = computed(() => {
+  const d = envDiag.value
+  if (!d) return false
+  return !d.nodeVersion || !d.npmVersion
+})
+
+/** 本机 Ollama 大脑：未选云端 Remote 且 CLI/API 异常时提示 */
 const ollamaNeedsAttention = computed(() => {
+  if (config.value.ocliveLlmMode === 'remote') return false
   const d = envDiag.value
   if (!d) return false
   return !d.ollamaApiReachable || !d.ollamaVersion
@@ -172,12 +186,30 @@ async function refreshLocalVersions() {
   }
 }
 
+async function refreshWingetAvailability() {
+  try {
+    wingetAvailable.value = await invoke<boolean>('winget_available')
+  } catch {
+    wingetAvailable.value = false
+  }
+}
+
+async function refreshBundledOllamaInfo() {
+  try {
+    bundledOllamaPath.value = await invoke<string | null>('bundled_ollama_installer_path')
+  } catch {
+    bundledOllamaPath.value = null
+  }
+}
+
 async function loadAll() {
   try {
     const c = await invoke<LauncherConfig>('load_config')
     config.value = { ...config.value, ...c }
     announcements.value = await invoke<string>('load_announcements')
     await refreshLocalVersions()
+    await refreshWingetAvailability()
+    await refreshBundledOllamaInfo()
     statusMsg.value = '已加载配置'
   } catch (e) {
     statusMsg.value = String(e)
@@ -303,6 +335,58 @@ async function confirmInstallRolePack() {
   }
 }
 
+async function launchBundledOllamaInstaller() {
+  if (!bundledOllamaPath.value) return
+  if (
+    !confirm(
+      '将启动附带的 Ollama 安装程序（Windows）。若已安装过 Ollama，向导可能提示修复或卸载。是否继续？',
+    )
+  ) {
+    return
+  }
+  try {
+    await invoke('launch_bundled_ollama_installer')
+    statusMsg.value = '已启动附带安装程序；完成后请在「环境」页点「重新检测」。'
+    focusLogs('bundled-ollama')
+  } catch (e) {
+    statusMsg.value = String(e)
+  }
+}
+
+async function installOllamaViaWinget() {
+  if (
+    !confirm(
+      '将通过 Windows 官方包管理器 winget 安装「Ollama.Ollama」。可能弹出 UAC 或安装向导，且需网络下载。是否继续？',
+    )
+  ) {
+    return
+  }
+  wingetInstallBusy.value = true
+  try {
+    await invoke('install_ollama_via_winget')
+    statusMsg.value =
+      '已开始 winget 安装 Ollama，进度见「日志」→ 筛选 winget。完成后请点「重新检测」。'
+    focusLogs('winget')
+  } catch (e) {
+    statusMsg.value = String(e)
+  } finally {
+    wingetInstallBusy.value = false
+  }
+}
+
+async function pullRecommendedOllamaModel() {
+  pullBusy.value = true
+  try {
+    await invoke('ollama_pull_model', { model: DEFAULT_OLLAMA_MODEL })
+    statusMsg.value = `已开始拉取「${DEFAULT_OLLAMA_MODEL}」，进度见「日志」→ 筛选 ollama。`
+    focusLogs('ollama')
+  } catch (e) {
+    statusMsg.value = String(e)
+  } finally {
+    pullBusy.value = false
+  }
+}
+
 async function pullSelectedOllamaModel() {
   const model = effectiveInstallModel.value
   if (!model) {
@@ -313,12 +397,7 @@ async function pullSelectedOllamaModel() {
   try {
     await invoke('ollama_pull_model', { model })
     statusMsg.value = `已开始拉取「${model}」，进度见「日志」→ 筛选 ollama。完成后可点「刷新本机列表」。`
-    try {
-      activeNav.value = 'logs'
-      logFilter.value = 'ollama'
-    } catch {
-      /* ignore */
-    }
+    focusLogs('ollama')
   } catch (e) {
     statusMsg.value = String(e)
   } finally {
@@ -403,6 +482,8 @@ async function runEnvironmentDiagnose(opts?: { quiet?: boolean }) {
     envDiag.value = await invoke<EnvDiagnostics>('diagnose_environment', {
       config: config.value,
     })
+    await refreshWingetAvailability()
+    await refreshBundledOllamaInfo()
     if (!quiet) statusMsg.value = '环境检测完成'
   } catch (e) {
     envDiagErr.value = String(e)
@@ -485,13 +566,25 @@ const navItems = [
 
 const activeNav = ref<string>('announce')
 
+function focusLogs(filter: 'ollama' | 'winget' | 'bundled-ollama') {
+  activeNav.value = 'logs'
+  logFilter.value = filter
+}
+
 const currentViewLabel = computed(() => VIEW_LABELS[activeNav.value] ?? '')
 
 function setView(id: string) {
   activeNav.value = id
 }
 
+function onDocKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && installModalOpen.value) {
+    cancelInstallRolePackModal()
+  }
+}
+
 onMounted(async () => {
+  document.addEventListener('keydown', onDocKeydown)
   await loadAll()
   await maybeFirstLaunchAutoDiagnose()
   unlistenLog = await listen<{ app: string; stream: string; line: string }>(
@@ -508,6 +601,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  document.removeEventListener('keydown', onDocKeydown)
   unlistenLog?.()
   unlistenExit?.()
 })
@@ -675,9 +769,35 @@ onUnmounted(() => {
 
     <section v-else-if="activeNav === 'assistant'" class="view-panel card">
         <h2>环境与排障</h2>
+        <div v-if="envDiag && nodeNeedsAttention" class="banner-warn banner-node" role="status">
+          <strong>Node.js / npm 未就绪</strong>：开发模式（<code>npm run …</code>）需要本机已安装 Node LTS 且可在终端执行
+          <code>node</code> / <code>npm</code>。若仅用 exe 模式启动编写器与 oclive，可忽略此项。
+          <button type="button" class="btn tiny" @click="openRelease('https://nodejs.org/')">打开 Node.js 下载页</button>
+        </div>
         <div v-if="envDiag && ollamaNeedsAttention" class="banner-warn" role="status">
           <strong>Ollama 未就绪</strong>：未检测到 CLI 或 <code>127.0.0.1:11434</code> 不可访问。对话需要本地模型时，请先安装并启动 Ollama。
           <button type="button" class="btn tiny" @click="openRelease('https://ollama.com/download')">打开 Ollama 下载页</button>
+          <button
+            v-if="wingetAvailable"
+            type="button"
+            class="btn tiny primary"
+            :disabled="wingetInstallBusy"
+            @click="installOllamaViaWinget"
+          >
+            一键安装（winget）
+          </button>
+          <button
+            v-if="bundledOllamaPath"
+            type="button"
+            class="btn tiny"
+            :disabled="wingetInstallBusy"
+            @click="launchBundledOllamaInstaller"
+          >
+            运行附带安装包
+          </button>
+        </div>
+        <div v-if="config.ocliveLlmMode === 'remote' && envDiag" class="banner-hint-remote" role="note">
+          当前在「启动」页选择了<strong>云端 Remote LLM</strong>，运行时可不依赖本机 Ollama；若仍要从 zip 安装角色包并指定本机模型，可照常使用下方的拉取与列表。
         </div>
         <div class="ollama-model-box">
           <strong>Ollama 与模型</strong>
@@ -685,7 +805,8 @@ onUnmounted(() => {
             <li>
               <strong>安装</strong>：从
               <button type="button" class="linkish inline" @click="openRelease('https://ollama.com/download')">ollama.com/download</button>
-              获取安装包；安装后尽量让 Ollama 在后台运行（系统托盘）。
+              获取安装包；安装后尽量让 Ollama 在后台运行（系统托盘）。              <strong>Windows</strong>：若已启用 <code>winget</code>，可用「一键安装（winget）」；若你与启动器<strong>一并附带</strong>了官方
+              <code>OllamaSetup.exe</code>（可放在仓库根目录，构建时会同步到 <code>src-tauri/bundled/ollama/</code>），打包后此处会出现「运行附带安装包」。二者均非静默，可能弹 UAC。
             </li>
             <li>
               <strong>拉取模型</strong>：安装不等于已有模型。可在「启动」页用 <strong>从 zip 安装角色包</strong> 对话框里的「拉取所选模型」，或在终端执行
@@ -702,6 +823,51 @@ onUnmounted(() => {
               <strong>网络</strong>：下载安装包或 pull 若较慢，可稍后重试；具体以 Ollama 官方文档为准。
             </li>
           </ul>
+          <div class="env-ollama-quick">
+            <span class="env-ollama-quick-label">快捷操作</span>
+            <div class="env-ollama-quick-btns">
+              <button
+                v-if="bundledOllamaPath"
+                type="button"
+                class="btn"
+                :disabled="wingetInstallBusy || pullBusy"
+                @click="launchBundledOllamaInstaller"
+              >
+                运行附带 Ollama 安装包
+              </button>
+              <button
+                v-if="wingetAvailable"
+                type="button"
+                class="btn"
+                :disabled="wingetInstallBusy || pullBusy"
+                @click="installOllamaViaWinget"
+              >
+                一键安装 Ollama（winget）
+              </button>
+              <button
+                type="button"
+                class="btn"
+                :disabled="pullBusy || wingetInstallBusy"
+                @click="pullRecommendedOllamaModel"
+              >
+                一键拉取推荐模型（{{ DEFAULT_OLLAMA_MODEL }}）
+              </button>
+              <button
+                type="button"
+                class="btn"
+                :disabled="pullBusy || wingetInstallBusy"
+                @click="refreshOllamaLocalModelsList"
+              >
+                刷新本机已拉取列表
+              </button>
+            </div>
+            <p v-if="ollamaLocalModels.length" class="hint tiny env-ollama-model-chips">
+              本机已有：<code>{{ ollamaLocalModels.join('、') }}</code>
+            </p>
+            <p v-else class="hint tiny env-ollama-model-chips">
+              点击「刷新本机已拉取列表」查看 <code>ollama list</code> / API 结果（需 Ollama 已启动）。
+            </p>
+          </div>
         </div>
         <p class="hint">
           启动前可点「重新检测」：确认本机已安装 <strong>Node.js</strong> / <strong>npm</strong>（开发模式必需），以及
@@ -902,6 +1068,8 @@ onUnmounted(() => {
             <option value="editor">仅编写器</option>
             <option value="oclive">仅 oclive</option>
             <option value="ollama">仅 ollama pull</option>
+            <option value="winget">仅 winget 安装</option>
+            <option value="bundled-ollama">仅附带安装包</option>
           </select>
           <button type="button" class="btn" @click="clearLogs">清空</button>
         </div>
@@ -942,10 +1110,20 @@ onUnmounted(() => {
             若 <code>settings.json</code> 里已有 <code>model</code>，仍覆盖为所选模型
           </label>
           <div class="modal-actions">
-            <button type="button" class="btn" :disabled="pullBusy" @click="refreshOllamaLocalModelsList">
+            <button
+              type="button"
+              class="btn"
+              :disabled="pullBusy || wingetInstallBusy"
+              @click="refreshOllamaLocalModelsList"
+            >
               刷新本机列表
             </button>
-            <button type="button" class="btn" :disabled="pullBusy || installBusy" @click="pullSelectedOllamaModel">
+            <button
+              type="button"
+              class="btn"
+              :disabled="pullBusy || installBusy || wingetInstallBusy"
+              @click="pullSelectedOllamaModel"
+            >
               拉取所选模型（ollama pull）
             </button>
             <button type="button" class="btn" @click="cancelInstallRolePackModal">取消</button>
@@ -1479,6 +1657,46 @@ input[type='text']:focus {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+.banner-node {
+  border-color: rgba(0, 99, 177, 0.4);
+  background: rgba(0, 120, 212, 0.1);
+}
+
+.banner-hint-remote {
+  margin-bottom: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-stroke);
+  background: var(--fluent-bg-subtle);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--fluent-text-primary);
+}
+
+.env-ollama-quick {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed var(--fluent-border-stroke);
+}
+
+.env-ollama-quick-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--fluent-text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.env-ollama-quick-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.env-ollama-model-chips {
+  margin: 0.45rem 0 0;
 }
 
 .roles-block {

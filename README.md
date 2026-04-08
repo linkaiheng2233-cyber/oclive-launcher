@@ -57,6 +57,19 @@
 
 **资产命名约定（生态一致）**：按软件区分前缀，再加平台与语义化版本，例如 `oclive-pack-editor-windows-v1.2.3.zip`、`oclivenewnew-windows-v1.2.3.zip`、`oclive-launcher-windows-v1.2.3.zip`（具体以各仓库 CI 为准）。
 
+### 附带 Ollama 安装包（Windows，与启动器同发）
+
+可将官方 **Ollama** Windows 安装包与启动器**打进同一安装包**分发：从 [ollama/ollama Releases](https://github.com/ollama/ollama/releases) 下载 **`OllamaSetup.exe`**（即官方安装程序，不是模型文件），放在本仓库根目录（与 `package.json` 同级），执行 `npm run tauri:build` 时 **`scripts/sync-ollama-installer.mjs`** 会自动将其复制到 `src-tauri/bundled/ollama/` 并打入安装包；若目标已存在且**字节大小一致**则跳过复制（加快反复构建）。也可手动放到该目录。用户在「环境」页可见 **「运行附带安装包」**。许可与再分发说明见 **`src-tauri/bundled/ollama/README.txt`**。
+
+### 发版、Git 与大文件（`OllamaSetup.exe`）
+
+| 做法 | 说明 |
+|------|------|
+| **推荐：不要提交安装包进 Git** | `OllamaSetup.exe` 体积大（约数百 MB），进主分支会让克隆与历史永久膨胀；根目录与 `src-tauri/bundled/ollama/` 下的该文件已在 **`.gitignore`** 中忽略。 |
+| **分发大文件** | 使用 **GitHub Releases**（或其它发布渠道）上传「已构建的启动器安装包 / 整合 zip」；必要时单独附上 `OllamaSetup.exe` 或仅在「胖包」里内嵌，与「仅启动器」瘦包区分。 |
+| **CI 构建** | 可在 workflow 中于 `tauri build` 前从官方 Release **下载**指定版本的 `OllamaSetup.exe` 到仓库根或 `bundled/ollama/`，再跑 `sync` 与打包；无需把二进制长期放在仓库里。 |
+| **可选两种资产** | **瘦包**：不含 Ollama，用户自行安装；**胖包**：构建前放入 `OllamaSetup.exe`，用户可用「运行附带安装包」。 |
+
 ## 功能概览
 
 | 区域 | 说明 |
@@ -66,11 +79,11 @@
 | **启动** | 每个应用可选 **开发模式**（在项目根执行 `npm run <脚本>`，默认 `tauri:dev`）或 **exe 模式**（直接运行已构建的 `.exe`） |
 | **第一次使用** | 上手步骤与三仓库关系；鼓励玩家与创作者自由尝试 |
 | **首次启动** | 自动跑一次环境检测一次（本地记忆），状态栏提示欢迎语 |
-| **环境与排障** | **一键检测** Node / npm / Ollama（CLI 与 `127.0.0.1:11434` API）、编写器/oclive 项目目录、`OCLIVE_ROLES_DIR` 是否有效；Ollama 未就绪时 **横幅提示**；**打开配置目录**；**一键重置**损坏的 `launcher-config.json`（原文件尽量备份为 `launcher-config.json.corrupt.bak`）；附 Node / Ollama 官方下载链接 |
+| **环境与排障** | **一键检测** Node / npm / Ollama（CLI 与 `127.0.0.1:11434` API）、编写器/oclive 项目目录、`OCLIVE_ROLES_DIR` 是否有效；Ollama 未就绪时 **横幅提示**；**Windows**：若本机有 **winget**，可 **一键安装官方 Ollama**；若打包时包含 **`bundled/ollama/OllamaSetup.exe`**，可 **运行附带安装包**（均非静默，可能弹 UAC）；**打开配置目录**；**一键重置**损坏的 `launcher-config.json`（原文件尽量备份为 `launcher-config.json.corrupt.bak`）；附 Node / Ollama 官方下载链接 |
 | **启动** | 为 **oclive** 子进程注入 **`OCLIVE_ROLES_DIR`**（若已填写）；支持从 oclivenewnew 仓库根 **一键填入 `roles/`** |
 | **推理后端（大脑）** | 可选 **本机 Ollama** 或 **云端 Remote LLM**：注入 **`OCLIVE_LLM_BACKEND`**（`ollama` / `remote`），运行时覆盖角色包内 `plugin_backends.llm`；云端需填 JSON-RPC 端点 URL，可选 Token 与超时（见 oclivenewnew **`REMOTE_PLUGIN_PROTOCOL.md`**） |
 | **角色包 zip 安装** | 「从 zip 安装角色包」：解压编写器导出的包到 `roles/` 下，对话框选择 **Ollama 模型**（默认 `qwen2.5:7b`）、本机已拉取列表、或 **手动输入**；可选是否 **覆盖** `settings.json` 里已有 `model`；可一键 **`ollama pull`**（日志筛选「ollama」） |
-| **运行日志** | 子进程在 Windows 上使用 **无控制台窗口** 启动，输出汇总到下方日志区，可按应用筛选（含 **ollama pull**） |
+| **运行日志** | 子进程在 Windows 上使用 **无控制台窗口** 启动，输出汇总到下方日志区，可按应用筛选（含 **ollama pull**、**winget**、**附带安装包**） |
 
 ## 与「整合包 / 一键装模型」等方向的路线（长期）
 
@@ -111,6 +124,10 @@ npm run tauri:build  # 安装包 / 可执行文件
 ## 与双开浏览器的关系
 
 本仓库 **不包含** 编写器或 oclive 源码；请在界面中填写本地克隆路径。若仅用 `npm run dev` 启动编写器且使用 `vite --open`，可能与 Tauri 子窗口同时出现浏览器——编写器仓库已提供 **`dev`（无 `--open`）** 与 **`dev:browser`** 的区分，详见该仓库 README。
+
+## 贡献与发版
+
+参与开发与 **发版前检查清单** 见 **[CONTRIBUTING.md](CONTRIBUTING.md)**；版本摘要见 **[CHANGELOG.md](CHANGELOG.md)**。
 
 ## 许可
 

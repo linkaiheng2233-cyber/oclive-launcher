@@ -37,6 +37,7 @@ jobs:
         with:
           workspaces: ./src-tauri
       - run: npm ci
+      # 不依赖 OllamaSetup.exe；sync 脚本在根目录无该文件时会静默跳过
       - run: npm run build
       - name: Cargo build (Tauri crate)
         run: cargo build --manifest-path src-tauri/Cargo.toml

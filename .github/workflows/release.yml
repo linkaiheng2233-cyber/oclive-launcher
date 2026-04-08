@@ -1,0 +1,47 @@
+# 打标签 push（v*）或手动运行时，在 Windows 上执行 tauri build 并上传安装包目录为 Artifact。
+# 不含代码签名；正式发布请在 GitHub Release 中附说明与校验方式。
+
+name: Release build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri
+
+      - run: npm ci
+
+      # 根目录无 OllamaSetup.exe 时 sync 静默跳过，仍可产出不含附带安装包的构建
+      - name: Tauri build
+        run: npm run tauri:build
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: oclive-launcher-${{ github.ref_name }}-${{ github.run_id }}
+          path: src-tauri/target/release/bundle/
+          if-no-files-found: warn

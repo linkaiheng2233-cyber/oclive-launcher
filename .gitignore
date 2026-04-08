@@ -12,6 +12,9 @@ dist
 
 # Rust / Tauri
 src-tauri/target
+# 发版前放入官方 OllamaSetup.exe（见 bundled/ollama/README.txt），勿提交大二进制
+src-tauri/bundled/ollama/OllamaSetup.exe
+/OllamaSetup.exe
 dist-ssr
 *.local
 

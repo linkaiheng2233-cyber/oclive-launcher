@@ -506,7 +506,7 @@ fn ollama_pull_model(app: tauri::AppHandle, model: String) -> Result<(), String>
         cmd.stderr(Stdio::piped());
         #[cfg(windows)]
         cmd.creation_flags(CREATE_NO_WINDOW);
-        let mut child = match cmd.spawn() {
+        let child = match cmd.spawn() {
             Ok(c) => c,
             Err(e) => {
                 emit_log(
@@ -518,38 +518,155 @@ fn ollama_pull_model(app: tauri::AppHandle, model: String) -> Result<(), String>
                 return;
             }
         };
-        let stdout = match child.stdout.take() {
-            Some(s) => s,
-            None => {
-                emit_log(&app2, "ollama", "err", "无法读取 ollama stdout");
-                return;
-            }
-        };
-        let stderr = match child.stderr.take() {
-            Some(s) => s,
-            None => {
-                emit_log(&app2, "ollama", "err", "无法读取 ollama stderr");
-                return;
-            }
-        };
-        let app_o = app2.clone();
-        let h1 = thread::spawn(move || {
-            for line in BufReader::new(stdout).lines().flatten() {
-                emit_log(&app_o, "ollama", "out", &line);
-            }
-        });
-        let app_e = app2.clone();
-        let h2 = thread::spawn(move || {
-            for line in BufReader::new(stderr).lines().flatten() {
-                emit_log(&app_e, "ollama", "err", &line);
-            }
-        });
-        let _ = child.wait();
-        let _ = h1.join();
-        let _ = h2.join();
-        emit_log(&app2, "ollama", "out", "--- ollama pull 已结束 ---");
+        match drain_child_to_log(&app2, "ollama", child) {
+            Ok(_) => emit_log(&app2, "ollama", "out", "--- ollama pull 已结束 ---"),
+            Err(e) => emit_log(&app2, "ollama", "err", &format!("ollama pull：{}", e)),
+        }
     });
     Ok(())
+}
+
+/// 是否可在本机调用 `winget`（主要用于 Windows 一键安装 Ollama）。
+#[tauri::command]
+fn winget_available() -> bool {
+    #[cfg(windows)]
+    {
+        try_cmd_version("winget", &["--version"]).is_some()
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+/// Windows：通过 `winget install -e --id Ollama.Ollama` 安装官方 Ollama；日志发往 `winget` 频道。
+/// 不设 `CREATE_NO_WINDOW`，以便需要时出现 UAC / 安装界面。
+#[tauri::command]
+fn install_ollama_via_winget(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(not(windows))]
+    {
+        return Err(
+            "一键安装目前仅在 Windows 上通过 winget 提供。macOS 可用 Homebrew 或官网安装包；Linux 见 ollama.com。"
+                .into(),
+        );
+    }
+    #[cfg(windows)]
+    {
+        if try_cmd_version("winget", &["--version"]).is_none() {
+            return Err(
+                "未检测到 winget。请更新「应用安装程序」或从 https://ollama.com/download 手动安装。"
+                    .into(),
+            );
+        }
+        let app2 = app.clone();
+        thread::spawn(move || {
+            emit_log(
+                &app2,
+                "winget",
+                "out",
+                "--- 开始 winget install -e --id Ollama.Ollama（若弹出 UAC 或安装向导请按提示操作）---",
+            );
+            let mut cmd = Command::new("cmd");
+            cmd.args([
+                "/C",
+                "winget",
+                "install",
+                "-e",
+                "--id",
+                "Ollama.Ollama",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+            ]);
+            cmd.stdout(Stdio::piped());
+            cmd.stderr(Stdio::piped());
+            let child = match cmd.spawn() {
+                Ok(c) => c,
+                Err(e) => {
+                    emit_log(
+                        &app2,
+                        "winget",
+                        "err",
+                        &format!("启动 winget 失败：{}", e),
+                    );
+                    return;
+                }
+            };
+            match drain_child_to_log(&app2, "winget", child) {
+                Ok(s) if s.success() => {
+                    emit_log(
+                        &app2,
+                        "winget",
+                        "out",
+                        "--- winget 安装命令已结束（成功）。若仍检测不到 ollama，请新开终端或重启后再点「重新检测」---",
+                    );
+                }
+                Ok(s) => {
+                    emit_log(
+                        &app2,
+                        "winget",
+                        "err",
+                        &format!(
+                            "--- winget 退出码：{:?}。若已安装过 Ollama，可忽略；否则请见上方日志或改用官网安装包 ---",
+                            s.code()
+                        ),
+                    );
+                }
+                Err(e) => emit_log(&app2, "winget", "err", &format!("winget：{}", e)),
+            }
+        });
+        Ok(())
+    }
+}
+
+/// 与 `tauri.conf.json` 中 `bundle.resources` 一致；发版前可将仓库根目录 `OllamaSetup.exe` 经 `scripts/sync-ollama-installer.mjs` 复制到本路径后打包。
+const BUNDLED_OLLAMA_SETUP_REL: &str = "bundled/ollama/OllamaSetup.exe";
+
+#[cfg(windows)]
+fn resolve_bundled_ollama_installer(app: &tauri::AppHandle) -> Option<PathBuf> {
+    app.path_resolver()
+        .resolve_resource(BUNDLED_OLLAMA_SETUP_REL)
+        .filter(|p| p.is_file())
+}
+
+/// 若打包时包含官方 Windows 安装包 `OllamaSetup.exe`（见资源路径），返回其绝对路径。
+#[tauri::command]
+fn bundled_ollama_installer_path(app: tauri::AppHandle) -> Option<String> {
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        None
+    }
+    #[cfg(windows)]
+    {
+        resolve_bundled_ollama_installer(&app).map(|p| p.to_string_lossy().into_owned())
+    }
+}
+
+/// 启动附带的 Ollama 安装程序（不设 CREATE_NO_WINDOW，便于图形安装向导）。
+#[tauri::command]
+fn launch_bundled_ollama_installer(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        return Err("附带安装包目前仅提供 Windows 安装程序（OllamaSetup.exe）。".into());
+    }
+    #[cfg(windows)]
+    {
+        let p = resolve_bundled_ollama_installer(&app).ok_or_else(|| {
+            "未找到附带安装包。请将官方 OllamaSetup.exe 放在启动器仓库根目录后执行构建（会自动同步到 bundled/ollama），或直接放入 src-tauri/bundled/ollama/。"
+                .to_string()
+        })?;
+        let mut cmd = Command::new(&p);
+        // 故意不使用 CREATE_NO_WINDOW，以便显示安装界面
+        cmd.spawn().map_err(|e| format!("无法启动安装程序：{}", e))?;
+        emit_log(
+            &app,
+            "bundled-ollama",
+            "out",
+            &format!("--- 已启动附带安装程序：{} ---", p.display()),
+        );
+        Ok(())
+    }
 }
 
 fn validate_npm_script(s: &str) -> Result<(), String> {
@@ -579,6 +696,34 @@ fn emit_log(app: &tauri::AppHandle, app_id: &str, stream: &str, line: &str) {
             "line": line,
         }),
     );
+}
+
+/// 将子进程 stdout/stderr 写入 launcher-log，并等待其结束（用于 `ollama pull` / `winget` 等）。
+fn drain_child_to_log(app: &tauri::AppHandle, app_id: &str, mut child: Child) -> std::io::Result<std::process::ExitStatus> {
+    let stdout = child.stdout.take().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::Other, "无法读取子进程 stdout")
+    })?;
+    let stderr = child.stderr.take().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::Other, "无法读取子进程 stderr")
+    })?;
+    let app_o = app.clone();
+    let aid = app_id.to_string();
+    let h1 = thread::spawn(move || {
+        for line in BufReader::new(stdout).lines().flatten() {
+            emit_log(&app_o, &aid, "out", &line);
+        }
+    });
+    let app_e = app.clone();
+    let aid_e = app_id.to_string();
+    let h2 = thread::spawn(move || {
+        for line in BufReader::new(stderr).lines().flatten() {
+            emit_log(&app_e, &aid_e, "err", &line);
+        }
+    });
+    let status = child.wait()?;
+    let _ = h1.join();
+    let _ = h2.join();
+    Ok(status)
 }
 
 fn pipe_stream<R: std::io::Read + Send + 'static>(
@@ -726,8 +871,15 @@ fn spawn_managed_app(
         if !root.is_dir() {
             return Err("项目目录不存在或不是文件夹".into());
         }
-        let mut cmd = Command::new("cmd");
-        cmd.args(["/C", "npm", "run", &npm_script]);
+        let mut cmd = if cfg!(windows) {
+            let mut c = Command::new("cmd");
+            c.args(["/C", "npm", "run", &npm_script]);
+            c
+        } else {
+            let mut c = Command::new("npm");
+            c.args(["run", &npm_script]);
+            c
+        };
         cmd.current_dir(&root);
         if kind == "oclive" {
             oclive_env::apply_oclive_process_env(&mut cmd, &config)?;
@@ -806,6 +958,10 @@ fn main() {
             ollama_list_local_models,
             install_role_pack_zip,
             ollama_pull_model,
+            winget_available,
+            install_ollama_via_winget,
+            bundled_ollama_installer_path,
+            launch_bundled_ollama_installer,
             spawn_managed_app,
             stop_managed_app,
         ])
