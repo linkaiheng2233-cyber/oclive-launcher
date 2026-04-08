@@ -27,6 +27,9 @@ struct LauncherConfig {
     editor_mode: String,
     #[serde(default = "default_npm")]
     editor_npm_script: String,
+    /// 编写器「网页」模式下的地址；留空则使用 `https://{github_editor_owner}.github.io/{github_editor_repo}/`。
+    #[serde(default)]
+    editor_web_url: String,
     #[serde(default)]
     oclive_project_root: String,
     #[serde(default)]
@@ -88,8 +91,9 @@ impl Default for LauncherConfig {
         let mut s = Self {
             editor_project_root: String::new(),
             editor_exe: String::new(),
-            editor_mode: "dev".into(),
+            editor_mode: "web".into(),
             editor_npm_script: default_npm(),
+            editor_web_url: String::new(),
             oclive_project_root: String::new(),
             oclive_exe: String::new(),
             oclive_mode: "dev".into(),
@@ -348,7 +352,9 @@ fn diagnose_environment(config: LauncherConfig) -> EnvDiagnostics {
     let npm = try_cmd_version("npm", &["--version"]);
     let ollama_v = try_cmd_version("ollama", &["--version"]);
     let ollama_api = ollama_api_reachable();
-    let (ed_ok, ed_pkg) = if config.editor_project_root.trim().is_empty() {
+    let (ed_ok, ed_pkg) = if config.editor_mode.trim() == "web" {
+        (true, true)
+    } else if config.editor_project_root.trim().is_empty() {
         (false, false)
     } else {
         dir_has_package_json(&config.editor_project_root)
@@ -542,7 +548,7 @@ fn winget_available() -> bool {
 }
 
 /// Windows：通过 `winget install -e --id Ollama.Ollama` 安装官方 Ollama；日志发往 `winget` 频道。
-/// 不设 `CREATE_NO_WINDOW`，以便需要时出现 UAC / 安装界面。
+/// 使用 `CREATE_NO_WINDOW` 隐藏 cmd 黑窗；UAC / 安装向导仍可由 winget 单独弹出。
 #[tauri::command]
 fn install_ollama_via_winget(app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(not(windows))]
@@ -581,6 +587,7 @@ fn install_ollama_via_winget(app: tauri::AppHandle) -> Result<(), String> {
             ]);
             cmd.stdout(Stdio::piped());
             cmd.stderr(Stdio::piped());
+            cmd.creation_flags(CREATE_NO_WINDOW);
             let child = match cmd.spawn() {
                 Ok(c) => c,
                 Err(e) => {
@@ -715,6 +722,21 @@ fn managed_exe_and_cwd(kind: &str, config: &LauncherConfig) -> Result<(PathBuf, 
 }
 
 /// `kind` 为 `editor` | `oclive`。
+fn resolve_editor_web_url(config: &LauncherConfig) -> String {
+    let custom = config.editor_web_url.trim();
+    if !custom.is_empty() {
+        return custom.to_string();
+    }
+    let owner = config.github_editor_owner.trim();
+    let repo = config.github_editor_repo.trim();
+    let (owner, repo) = if owner.is_empty() || repo.is_empty() {
+        (UPSTREAM_GITHUB_OWNER, UPSTREAM_EDITOR_REPO)
+    } else {
+        (owner, repo)
+    };
+    format!("https://{}.github.io/{}/", owner, repo)
+}
+
 fn managed_npm_root_and_script(
     kind: &str,
     config: &LauncherConfig,
@@ -856,6 +878,25 @@ fn spawn_managed_app(
         if let Some(mut c) = g.take() {
             let _ = c.kill();
         }
+    }
+
+    if kind.as_str() == "editor" && config.editor_mode == "web" {
+        let url = resolve_editor_web_url(&config);
+        let t = url.trim();
+        if t.is_empty() {
+            return Err("编写器网页地址无效".into());
+        }
+        if !t.starts_with("http://") && !t.starts_with("https://") {
+            return Err("编写器网页地址须以 http:// 或 https:// 开头".into());
+        }
+        open::that(t).map_err(|e| format!("打开浏览器失败：{}", e))?;
+        emit_log(
+            &app,
+            "editor",
+            "out",
+            &format!("已在系统浏览器打开编写器：{}", t),
+        );
+        return Ok(());
     }
 
     let is_exe = match kind.as_str() {

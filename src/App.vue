@@ -15,8 +15,10 @@ const VIEW_LABELS: Record<string, string> = {
 export interface LauncherConfig {
   editorProjectRoot: string
   editorExe: string
-  editorMode: 'dev' | 'exe'
+  editorMode: 'web' | 'dev' | 'exe'
   editorNpmScript: string
+  /** 留空则由后端按 GitHub owner/repo 拼 Pages 地址 */
+  editorWebUrl: string
   ocliveProjectRoot: string
   ocliveExe: string
   ocliveMode: 'dev' | 'exe'
@@ -65,8 +67,9 @@ interface EnvDiagnostics {
 const config = ref<LauncherConfig>({
   editorProjectRoot: '',
   editorExe: '',
-  editorMode: 'dev',
+  editorMode: 'web',
   editorNpmScript: 'tauri:dev',
+  editorWebUrl: '',
   ocliveProjectRoot: '',
   ocliveExe: '',
   ocliveMode: 'dev',
@@ -114,6 +117,13 @@ const wingetAvailable = ref(false)
 const wingetInstallBusy = ref(false)
 /** 非空表示打包内含有 bundled/ollama/OllamaSetup.exe（仅 Windows） */
 const bundledOllamaPath = ref<string | null>(null)
+
+/** 编写器网页地址留空时的默认 GitHub Pages（与配置里 owner/repo 一致） */
+const editorPagesUrlPreview = computed(() => {
+  const o = config.value.githubEditorOwner?.trim() || 'linkaiheng2233-cyber'
+  const r = config.value.githubEditorRepo?.trim() || 'oclive-pack-editor'
+  return `https://${o}.github.io/${r}/`
+})
 
 const installModelOptions = computed(() => {
   const opts: { value: string; label: string }[] = [
@@ -417,6 +427,10 @@ async function refreshOllamaLocalModelsList() {
 async function spawnEditor() {
   try {
     await invoke('spawn_managed_app', { kind: 'editor', config: config.value })
+    if (config.value.editorMode === 'web') {
+      statusMsg.value =
+        '已在系统默认浏览器中打开编写器（若没看见页面，请检查任务栏或被拦截的弹窗）'
+    }
   } catch (e) {
     statusMsg.value = String(e)
   }
@@ -913,7 +927,8 @@ onUnmounted(() => {
             <tr>
               <th>编写器目录</th>
               <td :class="{ ok: envDiag.editorProjectOk && envDiag.editorPackageJson, bad: !envDiag.editorProjectOk }">
-                <template v-if="!config.editorProjectRoot?.trim()">未填写（开发模式需填写项目根）</template>
+                <template v-if="config.editorMode === 'web'">网页模式：使用浏览器打开，无需本地仓库</template>
+                <template v-else-if="!config.editorProjectRoot?.trim()">未填写（开发模式需填写项目根）</template>
                 <template v-else-if="!envDiag.editorProjectOk">路径不存在或不是文件夹</template>
                 <template v-else-if="!envDiag.editorPackageJson">缺少 package.json</template>
                 <template v-else>正常</template>
@@ -956,11 +971,25 @@ onUnmounted(() => {
     <div v-else-if="activeNav === 'apps'" class="view-panel grid grid-2">
       <section class="card">
         <h2>角色包编写器</h2>
-        <div class="mode">
+        <div class="mode mode--wrap">
+          <label><input v-model="config.editorMode" type="radio" value="web" /> 网页（推荐）</label>
           <label><input v-model="config.editorMode" type="radio" value="dev" /> 开发（npm）</label>
           <label><input v-model="config.editorMode" type="radio" value="exe" /> 已安装 exe</label>
         </div>
-        <template v-if="config.editorMode === 'dev'">
+        <template v-if="config.editorMode === 'web'">
+          <label>编写器网页地址</label>
+          <input
+            v-model="config.editorWebUrl"
+            type="url"
+            autocomplete="off"
+            :placeholder="`留空则打开：${editorPagesUrlPreview}`"
+          />
+          <p class="hint tiny">
+            默认使用「版本与更新」里填写的 GitHub Pages（<code>https://&lt;owner&gt;.github.io/&lt;repo&gt;/</code>）。可填本地
+            <code>http://127.0.0.1:…</code> 做调试。
+          </p>
+        </template>
+        <template v-else-if="config.editorMode === 'dev'">
           <label>项目根目录</label>
           <div class="row">
             <input v-model="config.editorProjectRoot" placeholder="例如 D:\oclive-pack-editor" />
@@ -977,7 +1006,9 @@ onUnmounted(() => {
           </div>
         </template>
         <div class="actions">
-          <button type="button" class="btn primary" @click="spawnEditor">启动</button>
+          <button type="button" class="btn primary" @click="spawnEditor">
+            {{ config.editorMode === 'web' ? '在浏览器中打开' : '启动' }}
+          </button>
           <button type="button" class="btn danger" @click="stopEditor">停止</button>
         </div>
       </section>
@@ -1443,6 +1474,10 @@ input[type='text']:focus {
   gap: 0.35rem;
   margin: 0;
   font-weight: 500;
+}
+
+.mode--wrap {
+  flex-wrap: wrap;
 }
 
 .row {
