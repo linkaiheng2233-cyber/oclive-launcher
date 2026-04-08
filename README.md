@@ -13,6 +13,8 @@
 | [oclivenewnew](https://github.com/linkaiheng2233-cyber/oclivenewnew) | 运行时、HTTP API、`creator-docs` 与角色契约 |
 | [oclive-pack-editor](https://github.com/linkaiheng2233-cyber/oclive-pack-editor) | 角色包编写器（导出与校验） |
 
+**纽带与契约**：三应用只通过磁盘上的 **角色包** 连接；`min_runtime_version`、Remote 环境变量等语义见 oclivenewnew **[PACK_VERSIONING.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/role-pack/PACK_VERSIONING.md)** 与 **[REMOTE_PLUGIN_PROTOCOL.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/plugin-and-architecture/REMOTE_PLUGIN_PROTOCOL.md)**。
+
 本地开发时可将三仓 **同级克隆**（例如 `D:\oclivenewnew`、`D:\oclive-pack-editor`、`D:\oclive-launcher`），在启动器里填写相对路径即可。
 
 ## 新用户：从下载到第一次对话（推荐路径）
