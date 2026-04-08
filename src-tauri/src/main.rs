@@ -114,20 +114,18 @@ struct AppState {
     oclive: Arc<Mutex<Option<Child>>>,
 }
 
-fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path_resolver()
+fn app_config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path_resolver()
         .app_config_dir()
-        .ok_or_else(|| "无法解析应用配置目录".to_string())?;
-    Ok(dir.join("launcher-config.json"))
+        .ok_or_else(|| "无法解析应用配置目录".to_string())
+}
+
+fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_config_dir(app)?.join("launcher-config.json"))
 }
 
 fn announcements_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path_resolver()
-        .app_config_dir()
-        .ok_or_else(|| "无法解析应用配置目录".to_string())?;
-    Ok(dir.join("announcements.md"))
+    Ok(app_config_dir(app)?.join("announcements.md"))
 }
 
 #[tauri::command]
@@ -402,10 +400,7 @@ fn suggest_roles_dir_from_oclive_root(oclive_project_root: String) -> Option<Str
 
 #[tauri::command]
 fn open_config_directory(app: tauri::AppHandle) -> Result<(), String> {
-    let dir = app
-        .path_resolver()
-        .app_config_dir()
-        .ok_or_else(|| "无法解析应用配置目录".to_string())?;
+    let dir = app_config_dir(&app)?;
     if !dir.is_dir() {
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     }

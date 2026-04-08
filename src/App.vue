@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { invoke } from '@tauri-apps/api/tauri'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 const VIEW_LABELS: Record<string, string> = {
   start: '第一次使用',
@@ -9,8 +11,6 @@ const VIEW_LABELS: Record<string, string> = {
   assistant: '环境与排障',
   logs: '运行日志',
 }
-import { invoke } from '@tauri-apps/api/tauri'
-import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 export interface LauncherConfig {
   editorProjectRoot: string

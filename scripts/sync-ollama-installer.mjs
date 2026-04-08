@@ -24,5 +24,10 @@ if (fs.existsSync(dest)) {
     process.exit(0)
   }
 }
-fs.copyFileSync(src, dest)
+try {
+  fs.copyFileSync(src, dest)
+} catch (e) {
+  console.error('[oclive-launcher] 复制 OllamaSetup.exe 失败:', e instanceof Error ? e.message : e)
+  process.exit(1)
+}
 console.log('[oclive-launcher] 已同步 OllamaSetup.exe → src-tauri/bundled/ollama/')
