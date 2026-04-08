@@ -27,6 +27,11 @@ export interface LauncherConfig {
   githubOcliveRepo: string
   /** 启动 oclive 时注入 OCLIVE_ROLES_DIR */
   ocliveRolesDir: string
+  /** ollama | remote — 注入 OCLIVE_LLM_BACKEND */
+  ocliveLlmMode: 'ollama' | 'remote'
+  ocliveRemoteLlmUrl: string
+  ocliveRemoteLlmToken: string
+  ocliveRemoteLlmTimeoutMs: string
 }
 
 interface ReleaseInfo {
@@ -71,6 +76,10 @@ const config = ref<LauncherConfig>({
   githubOcliveOwner: 'linkaiheng2233-cyber',
   githubOcliveRepo: 'oclivenewnew',
   ocliveRolesDir: '',
+  ocliveLlmMode: 'ollama',
+  ocliveRemoteLlmUrl: '',
+  ocliveRemoteLlmToken: '',
+  ocliveRemoteLlmTimeoutMs: '',
 })
 
 const announcements = ref('')
@@ -824,6 +833,39 @@ onUnmounted(() => {
             <button type="button" class="btn primary" @click="beginInstallRolePack">从 zip 安装角色包…</button>
           </div>
         </div>
+        <div class="llm-backend-block">
+          <label>对话推理（大脑）</label>
+          <p class="hint tiny">
+            启动 oclive 时注入 <code>OCLIVE_LLM_BACKEND</code>，覆盖角色包里的 <code>plugin_backends.llm</code>：<strong>本机</strong>走
+            Ollama（<code>settings.json</code> 的 <code>model</code>）；<strong>云端</strong>走 JSON-RPC 侧车（须填 URL）。协议见
+            oclivenewnew <code>creator-docs/plugin-and-architecture/REMOTE_PLUGIN_PROTOCOL.md</code>。
+          </p>
+          <div class="mode">
+            <label><input v-model="config.ocliveLlmMode" type="radio" value="ollama" /> 本机 Ollama</label>
+            <label><input v-model="config.ocliveLlmMode" type="radio" value="remote" /> 云端 Remote LLM</label>
+          </div>
+          <template v-if="config.ocliveLlmMode === 'remote'">
+            <label>Remote LLM URL（JSON-RPC）</label>
+            <input
+              v-model="config.ocliveRemoteLlmUrl"
+              placeholder="例如 http://127.0.0.1:8765/rpc"
+              autocomplete="off"
+            />
+            <label>Bearer Token（可选）</label>
+            <input
+              v-model="config.ocliveRemoteLlmToken"
+              type="password"
+              autocomplete="off"
+              placeholder="留空则不设置 OCLIVE_REMOTE_LLM_TOKEN"
+            />
+            <label>超时（毫秒，可选）</label>
+            <input
+              v-model="config.ocliveRemoteLlmTimeoutMs"
+              placeholder="如 120000；留空则用运行时默认"
+              inputmode="numeric"
+            />
+          </template>
+        </div>
         <div class="mode">
           <label><input v-model="config.ocliveMode" type="radio" value="dev" /> 开发（npm）</label>
           <label><input v-model="config.ocliveMode" type="radio" value="exe" /> 已安装 exe</label>
@@ -1449,6 +1491,29 @@ input[type='text']:focus {
 .roles-block .hint.tiny {
   margin: 0.25rem 0 0.45rem;
   font-size: 0.78rem;
+}
+
+.llm-backend-block {
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--fluent-border-stroke);
+}
+
+.llm-backend-block label {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.llm-backend-block input[type='text'],
+.llm-backend-block input[type='password'] {
+  width: 100%;
+  margin-top: 0.2rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-stroke);
+  font-size: 0.88rem;
 }
 
 .guide-lead {

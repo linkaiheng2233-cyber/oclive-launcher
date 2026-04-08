@@ -66,6 +66,7 @@
 | **首次启动** | 自动跑一次环境检测一次（本地记忆），状态栏提示欢迎语 |
 | **环境与排障** | **一键检测** Node / npm / Ollama（CLI 与 `127.0.0.1:11434` API）、编写器/oclive 项目目录、`OCLIVE_ROLES_DIR` 是否有效；Ollama 未就绪时 **横幅提示**；**打开配置目录**；**一键重置**损坏的 `launcher-config.json`（原文件尽量备份为 `launcher-config.json.corrupt.bak`）；附 Node / Ollama 官方下载链接 |
 | **启动** | 为 **oclive** 子进程注入 **`OCLIVE_ROLES_DIR`**（若已填写）；支持从 oclivenewnew 仓库根 **一键填入 `roles/`** |
+| **推理后端（大脑）** | 可选 **本机 Ollama** 或 **云端 Remote LLM**：注入 **`OCLIVE_LLM_BACKEND`**（`ollama` / `remote`），运行时覆盖角色包内 `plugin_backends.llm`；云端需填 JSON-RPC 端点 URL，可选 Token 与超时（见 oclivenewnew **`REMOTE_PLUGIN_PROTOCOL.md`**） |
 | **角色包 zip 安装** | 「从 zip 安装角色包」：解压编写器导出的包到 `roles/` 下，对话框选择 **Ollama 模型**（默认 `qwen2.5:7b`）、本机已拉取列表、或 **手动输入**；可选是否 **覆盖** `settings.json` 里已有 `model`；可一键 **`ollama pull`**（日志筛选「ollama」） |
 | **运行日志** | 子进程在 Windows 上使用 **无控制台窗口** 启动，输出汇总到下方日志区，可按应用筛选（含 **ollama pull**） |
 
