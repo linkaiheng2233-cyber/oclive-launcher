@@ -2,7 +2,11 @@
 
 本文件随 **Git 标签 / Release** 更新；维护者发版步骤见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
-## 0.1.0（当前开发线，待打 tag）
+## 0.1.1
+
+- **发版与文档**：GitHub Actions `release.yml`（`v*` / 手动触发）；根目录 CHANGELOG / CONTRIBUTING；README 与「附带 Ollama」说明；`scripts/sync-ollama-installer.mjs` 与 `src-tauri/bundled/ollama/README.txt`。
+
+## 0.1.0
 
 ### Windows 与 Ollama
 
