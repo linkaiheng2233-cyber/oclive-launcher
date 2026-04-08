@@ -5,8 +5,19 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # Tauri 2 needs a coordinated Rust + JS + config migration; do not auto-PR major bumps.
+      - dependency-name: "@tauri-apps/api"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@tauri-apps/cli"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "cargo"
     directory: "/src-tauri"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      - dependency-name: "tauri"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tauri-build"
+        update-types: ["version-update:semver-major"]
