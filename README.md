@@ -93,7 +93,7 @@
 |------|------|
 | **整合包 / 离线安装** | 将启动器、Ollama、基础模型、示例角色打成一个安装包，实现「下载即聊」——需安装包工程与许可证策略，与 CI 发版流程配合。 |
 | **更智能的依赖** | 在现有检测基础上，可扩展：引导安装 Ollama、拉取推荐模型、低配机策略等（须避免静默破坏用户环境）。 |
-| **包 / 插件「商店」** | 浏览与一键安装社区角色包——依赖索引服务、签名与版本契约，见主仓库路线图。 |
+| **包 / 插件「商店」** | 浏览与一键安装社区角色包——依赖索引服务、签名与版本契约；**发版与市场同发、启动器入口** 的落地步骤见主仓库 **[MARKET_LAUNCHER_INTEGRATION.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/roadmap/MARKET_LAUNCHER_INTEGRATION.md)**（与 [BACKLOG_EXPERIENCE_AND_ECOSYSTEM](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/roadmap/BACKLOG_EXPERIENCE_AND_ECOSYSTEM.md) 第三节对照）。 |
 | **开源协作** | 角色包、插件与文档由社区贡献，与主仓库 `CONTRIBUTING`、扩展点文档一致。 |
 
 若本地未克隆 `oclivenewnew`，也可在浏览器打开主仓库中的同路径文档（以你托管的 URL 为准）。
