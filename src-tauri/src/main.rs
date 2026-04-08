@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod oclive_env;
 mod role_pack;
 
 use serde::{Deserialize, Serialize};
@@ -564,72 +565,6 @@ fn validate_npm_script(s: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// 若配置了 `oclive_roles_dir`，为子进程设置 `OCLIVE_ROLES_DIR`（绝对路径）。
-fn apply_oclive_roles_env(cmd: &mut Command, config: &LauncherConfig) -> Result<(), String> {
-    let t = config.oclive_roles_dir.trim();
-    if t.is_empty() {
-        return Ok(());
-    }
-    let p = PathBuf::from(t);
-    if !p.is_dir() {
-        return Err(format!(
-            "角色包根目录无效（须为已存在的文件夹）：{}",
-            t
-        ));
-    }
-    let abs = std::fs::canonicalize(&p).unwrap_or(p);
-    cmd.env("OCLIVE_ROLES_DIR", abs);
-    Ok(())
-}
-
-/// 为 oclive 子进程设置 `OCLIVE_LLM_BACKEND` 与可选的 Remote LLM 环境变量；本地模式会移除可能继承的云端变量。
-fn apply_oclive_llm_env(cmd: &mut Command, config: &LauncherConfig) -> Result<(), String> {
-    let mode = config.oclive_llm_mode.trim().to_lowercase();
-    let mode = if mode.is_empty() {
-        "ollama".to_string()
-    } else {
-        mode
-    };
-
-    if mode == "ollama" {
-        cmd.env("OCLIVE_LLM_BACKEND", "ollama");
-        cmd.env_remove("OCLIVE_REMOTE_LLM_URL");
-        cmd.env_remove("OCLIVE_REMOTE_LLM_TOKEN");
-        cmd.env_remove("OCLIVE_REMOTE_LLM_TIMEOUT_MS");
-        return Ok(());
-    }
-
-    if mode == "remote" {
-        let url = config.oclive_remote_llm_url.trim();
-        if url.is_empty() {
-            return Err("云端模式需填写「Remote LLM URL」（JSON-RPC 端点，见 oclivenewnew REMOTE_PLUGIN_PROTOCOL）".into());
-        }
-        cmd.env("OCLIVE_LLM_BACKEND", "remote");
-        cmd.env("OCLIVE_REMOTE_LLM_URL", url);
-        let tok = config.oclive_remote_llm_token.trim();
-        if !tok.is_empty() {
-            cmd.env("OCLIVE_REMOTE_LLM_TOKEN", tok);
-        } else {
-            cmd.env_remove("OCLIVE_REMOTE_LLM_TOKEN");
-        }
-        let to = config.oclive_remote_llm_timeout_ms.trim();
-        if !to.is_empty() {
-            if to.parse::<u64>().is_err() {
-                return Err("Remote LLM 超时须为毫秒正整数".into());
-            }
-            cmd.env("OCLIVE_REMOTE_LLM_TIMEOUT_MS", to);
-        } else {
-            cmd.env_remove("OCLIVE_REMOTE_LLM_TIMEOUT_MS");
-        }
-        return Ok(());
-    }
-
-    Err(format!(
-        "未知的推理模式「{}」（请使用 ollama 或 remote）",
-        mode
-    ))
-}
-
 fn emit_log(app: &tauri::AppHandle, app_id: &str, stream: &str, line: &str) {
     let line = if line.len() > 16_000 {
         format!("{}…", &line[..16_000])
@@ -757,8 +692,7 @@ fn spawn_managed_app(
         let mut cmd = Command::new(&exe);
         cmd.current_dir(&cwd);
         if kind == "oclive" {
-            apply_oclive_roles_env(&mut cmd, &config)?;
-            apply_oclive_llm_env(&mut cmd, &config)?;
+            oclive_env::apply_oclive_process_env(&mut cmd, &config)?;
         }
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
@@ -796,8 +730,7 @@ fn spawn_managed_app(
         cmd.args(["/C", "npm", "run", &npm_script]);
         cmd.current_dir(&root);
         if kind == "oclive" {
-            apply_oclive_roles_env(&mut cmd, &config)?;
-            apply_oclive_llm_env(&mut cmd, &config)?;
+            oclive_env::apply_oclive_process_env(&mut cmd, &config)?;
         }
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());

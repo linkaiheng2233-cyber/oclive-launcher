@@ -836,9 +836,8 @@ onUnmounted(() => {
         <div class="llm-backend-block">
           <label>对话推理（大脑）</label>
           <p class="hint tiny">
-            启动 oclive 时注入 <code>OCLIVE_LLM_BACKEND</code>，覆盖角色包里的 <code>plugin_backends.llm</code>：<strong>本机</strong>走
-            Ollama（<code>settings.json</code> 的 <code>model</code>）；<strong>云端</strong>走 JSON-RPC 侧车（须填 URL）。协议见
-            oclivenewnew <code>creator-docs/plugin-and-architecture/REMOTE_PLUGIN_PROTOCOL.md</code>。
+            注入 <code>OCLIVE_LLM_BACKEND</code>，运行时覆盖包内 <code>plugin_backends.llm</code>。本机用 Ollama（<code>model</code>）；云端填侧车 URL，协议见主仓库
+            <code>REMOTE_PLUGIN_PROTOCOL.md</code>。
           </p>
           <div class="mode">
             <label><input v-model="config.ocliveLlmMode" type="radio" value="ollama" /> 本机 Ollama</label>
