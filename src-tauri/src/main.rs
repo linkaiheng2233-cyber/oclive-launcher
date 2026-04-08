@@ -684,6 +684,66 @@ fn validate_npm_script(s: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// `kind` 为 `editor` | `oclive`（与 `spawn_managed_app` 约定一致）。
+fn managed_exe_and_cwd(kind: &str, config: &LauncherConfig) -> Result<(PathBuf, PathBuf), String> {
+    let (raw, empty_err, missing_err) = match kind {
+        "editor" => (
+            config.editor_exe.as_str(),
+            "未设置编写器可执行文件路径",
+            "编写器可执行文件不存在",
+        ),
+        "oclive" => (
+            config.oclive_exe.as_str(),
+            "未设置 oclive 可执行文件路径",
+            "oclive 可执行文件不存在",
+        ),
+        _ => unreachable!(),
+    };
+    let t = raw.trim();
+    if t.is_empty() {
+        return Err(empty_err.into());
+    }
+    let p = PathBuf::from(t);
+    if !p.is_file() {
+        return Err(missing_err.into());
+    }
+    let cwd = p
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    Ok((p, cwd))
+}
+
+/// `kind` 为 `editor` | `oclive`。
+fn managed_npm_root_and_script(
+    kind: &str,
+    config: &LauncherConfig,
+) -> Result<(PathBuf, String), String> {
+    match kind {
+        "editor" => {
+            if config.editor_project_root.trim().is_empty() {
+                return Err("未设置编写器项目根目录".into());
+            }
+            validate_npm_script(&config.editor_npm_script)?;
+            Ok((
+                PathBuf::from(config.editor_project_root.trim()),
+                config.editor_npm_script.clone(),
+            ))
+        }
+        "oclive" => {
+            if config.oclive_project_root.trim().is_empty() {
+                return Err("未设置 oclive 项目根目录".into());
+            }
+            validate_npm_script(&config.oclive_npm_script)?;
+            Ok((
+                PathBuf::from(config.oclive_project_root.trim()),
+                config.oclive_npm_script.clone(),
+            ))
+        }
+        _ => unreachable!(),
+    }
+}
+
 fn emit_log(app: &tauri::AppHandle, app_id: &str, stream: &str, line: &str) {
     let line = if line.len() > 16_000 {
         format!("{}…", &line[..16_000])
@@ -805,37 +865,7 @@ fn spawn_managed_app(
     };
 
     let mut child = if is_exe {
-        let (exe, cwd) = match kind.as_str() {
-            "editor" => {
-                if config.editor_exe.trim().is_empty() {
-                    return Err("未设置编写器可执行文件路径".into());
-                }
-                let p = PathBuf::from(config.editor_exe.trim());
-                if !p.is_file() {
-                    return Err("编写器可执行文件不存在".into());
-                }
-                let cwd = p
-                    .parent()
-                    .map(Path::to_path_buf)
-                    .unwrap_or_else(|| PathBuf::from("."));
-                (p, cwd)
-            }
-            "oclive" => {
-                if config.oclive_exe.trim().is_empty() {
-                    return Err("未设置 oclive 可执行文件路径".into());
-                }
-                let p = PathBuf::from(config.oclive_exe.trim());
-                if !p.is_file() {
-                    return Err("oclive 可执行文件不存在".into());
-                }
-                let cwd = p
-                    .parent()
-                    .map(Path::to_path_buf)
-                    .unwrap_or_else(|| PathBuf::from("."));
-                (p, cwd)
-            }
-            _ => unreachable!(),
-        };
+        let (exe, cwd) = managed_exe_and_cwd(kind.as_str(), &config)?;
         let mut cmd = Command::new(&exe);
         cmd.current_dir(&cwd);
         if kind == "oclive" {
@@ -847,29 +877,7 @@ fn spawn_managed_app(
         cmd.creation_flags(CREATE_NO_WINDOW);
         cmd.spawn().map_err(|e| format!("启动失败：{}", e))?
     } else {
-        let (root, npm_script) = match kind.as_str() {
-            "editor" => {
-                if config.editor_project_root.trim().is_empty() {
-                    return Err("未设置编写器项目根目录".into());
-                }
-                validate_npm_script(&config.editor_npm_script)?;
-                (
-                    PathBuf::from(config.editor_project_root.trim()),
-                    config.editor_npm_script.clone(),
-                )
-            }
-            "oclive" => {
-                if config.oclive_project_root.trim().is_empty() {
-                    return Err("未设置 oclive 项目根目录".into());
-                }
-                validate_npm_script(&config.oclive_npm_script)?;
-                (
-                    PathBuf::from(config.oclive_project_root.trim()),
-                    config.oclive_npm_script.clone(),
-                )
-            }
-            _ => unreachable!(),
-        };
+        let (root, npm_script) = managed_npm_root_and_script(kind.as_str(), &config)?;
         if !root.is_dir() {
             return Err("项目目录不存在或不是文件夹".into());
         }
