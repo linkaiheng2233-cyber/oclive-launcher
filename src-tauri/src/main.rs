@@ -8,7 +8,7 @@ use tauri::Manager;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
 #[cfg(windows)]
@@ -128,6 +128,17 @@ fn announcements_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app_config_dir(app)?.join("announcements.md"))
 }
 
+fn ensure_parent_dir(path: &Path) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+fn mutex_lock<'a, T>(m: &'a Mutex<T>) -> Result<MutexGuard<'a, T>, String> {
+    m.lock().map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn load_config(app: tauri::AppHandle) -> Result<LauncherConfig, String> {
     let path = config_path(&app)?;
@@ -151,9 +162,7 @@ fn load_config(app: tauri::AppHandle) -> Result<LauncherConfig, String> {
 #[tauri::command]
 fn save_config(app: tauri::AppHandle, config: LauncherConfig) -> Result<(), String> {
     let path = config_path(&app)?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
+    ensure_parent_dir(&path)?;
     let s = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     std::fs::write(&path, s).map_err(|e| e.to_string())
 }
@@ -170,9 +179,7 @@ fn load_announcements(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 fn save_announcements(app: tauri::AppHandle, text: String) -> Result<(), String> {
     let path = announcements_path(&app)?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
+    ensure_parent_dir(&path)?;
     std::fs::write(&path, text.as_bytes()).map_err(|e| e.to_string())
 }
 
@@ -220,7 +227,7 @@ fn fetch_github_release(owner: String, repo: String) -> Result<ReleaseInfo, Stri
         repo.trim()
     );
     let client = reqwest::blocking::Client::builder()
-        .user_agent("oclive-launcher/0.1")
+        .user_agent(concat!("oclive-launcher/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|e| e.to_string())?;
     let resp = client.get(&url).send().map_err(|e| e.to_string())?;
@@ -785,7 +792,7 @@ fn spawn_managed_app(
     };
 
     {
-        let mut g = slot.lock().map_err(|e| e.to_string())?;
+        let mut g = mutex_lock(&slot)?;
         if let Some(mut c) = g.take() {
             let _ = c.kill();
         }
@@ -890,7 +897,7 @@ fn spawn_managed_app(
     let stderr = child.stderr.take().ok_or("无法读取子进程 stderr")?;
 
     {
-        let mut g = slot.lock().map_err(|e| e.to_string())?;
+        let mut g = mutex_lock(&slot)?;
         *g = Some(child);
     }
 
@@ -922,7 +929,7 @@ fn stop_managed_app(state: tauri::State<AppState>, kind: String) -> Result<(), S
         "oclive" => &state.oclive,
         _ => return Err("未知应用".into()),
     };
-    let mut g = slot.lock().map_err(|e| e.to_string())?;
+    let mut g = mutex_lock(slot)?;
     if let Some(mut c) = g.take() {
         let _ = c.kill();
     }
