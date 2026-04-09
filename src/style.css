@@ -32,6 +32,7 @@ html {
 
   --fluent-radius: 4px;
   --fluent-radius-lg: 8px;
+  --fluent-radius-xl: 12px;
   --fluent-font: 'Segoe UI', 'Segoe UI Variable', 'Microsoft YaHei', system-ui, sans-serif;
   --fluent-mono: 'Cascadia Code', 'Consolas', ui-monospace, monospace;
 
@@ -48,6 +49,7 @@ html {
   background: var(--fluent-bg-page);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
 }
 
 html[data-theme='dark'] {
@@ -112,8 +114,19 @@ h3 {
 code {
   font-family: var(--fluent-mono);
   font-size: 0.88em;
-  padding: 0.1em 0.35em;
+  padding: 0.12em 0.4em;
   border-radius: var(--fluent-radius);
-  background: var(--fluent-bg-subtle);
-  border: 1px solid var(--fluent-border-stroke);
+  background: color-mix(in srgb, var(--fluent-bg-subtle) 92%, var(--fluent-accent-subtle));
+  border: 1px solid color-mix(in srgb, var(--fluent-border-stroke) 85%, var(--fluent-accent) 15%);
+}
+
+input[type='text'],
+input[type='password'],
+input[type='url'],
+select,
+textarea {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
 }

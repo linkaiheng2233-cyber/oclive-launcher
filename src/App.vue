@@ -3,6 +3,11 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import HelpHint from './components/HelpHint.vue'
+import CreatorAnnouncementsSection from './announcements/CreatorAnnouncementsSection.vue'
+import DeveloperAnnouncementsSection from './announcements/DeveloperAnnouncementsSection.vue'
+import { useDeveloperAnnouncements } from './announcements/useDeveloperAnnouncements'
+import { useRolePackEcho } from './composables/useRolePackEcho'
+import type { RolePackEchoConfig } from './lib/rolePackCreatorMessage'
 
 const VIEW_LABELS: Record<string, string> = {
   start: '新手入门',
@@ -13,10 +18,10 @@ const VIEW_LABELS: Record<string, string> = {
   logs: '运行日志',
 }
 
-/** 发给别人用的包请保持 false；只有你本地打包时设为 true 才能在界面里改公告 */
+/** 发给别人用的包请保持 false；本地维护者构建可设为 true 以编辑开发者公告文件 */
 const announceEditEnabled = computed(() => import.meta.env.VITE_ANNOUNCE_EDITABLE === 'true')
 
-export interface LauncherConfig {
+export interface LauncherConfig extends RolePackEchoConfig {
   editorProjectRoot: string
   editorExe: string
   editorMode: 'web' | 'dev' | 'exe'
@@ -31,13 +36,13 @@ export interface LauncherConfig {
   githubEditorRepo: string
   githubOcliveOwner: string
   githubOcliveRepo: string
-  /** 启动 oclive 时注入 OCLIVE_ROLES_DIR */
-  ocliveRolesDir: string
   /** ollama | remote — 注入 OCLIVE_LLM_BACKEND */
   ocliveLlmMode: 'ollama' | 'remote'
   ocliveRemoteLlmUrl: string
   ocliveRemoteLlmToken: string
   ocliveRemoteLlmTimeoutMs: string
+  /** 可选：开发者公告远程正文 URL（http/https），配合「拉取最新」 */
+  developerAnnouncementsUrl: string
 }
 
 interface ReleaseInfo {
@@ -80,17 +85,6 @@ interface EnvDiagnostics {
   ocliveRolesDirHasRoleHint: boolean
 }
 
-interface CreatorEchoMessage {
-  text: string
-  createdAt: number
-}
-
-interface CreatorEchoState {
-  hasSubmitted: boolean
-}
-
-const CREATOR_ECHO_MAX_CHARS = 160
-
 const config = ref<LauncherConfig>({
   editorProjectRoot: '',
   editorExe: '',
@@ -110,18 +104,39 @@ const config = ref<LauncherConfig>({
   ocliveRemoteLlmUrl: '',
   ocliveRemoteLlmToken: '',
   ocliveRemoteLlmTimeoutMs: '',
+  launcherEchoRoleId: '',
+  developerAnnouncementsUrl: '',
 })
 
-const maintainerAnnouncements = ref('')
-const creatorAnnouncements = ref('')
-const creatorEchoMessages = ref<CreatorEchoMessage[]>([])
-const creatorEchoState = ref<CreatorEchoState>({ hasSubmitted: false })
-const creatorEchoModalOpen = ref(false)
-const creatorEchoDraft = ref('')
-const creatorEchoBusy = ref(false)
-/** 本会话内仅自动弹出一次撰写窗口（在首次 zip 安装角色包成功后） */
-const autoCreatorEchoPromptShown = ref(false)
 const statusMsg = ref('')
+
+async function persistLauncherConfigToDisk() {
+  await invoke('save_config', { config: config.value })
+}
+
+const {
+  echoLines: rolePackEchoLines,
+  roleIds: rolePackRoleIds,
+  refreshEchoUi: refreshRolePackEchoUi,
+  persistFollowRole: persistLauncherEchoRole,
+  clearFollowRole: clearLauncherEchoRole,
+} = useRolePackEcho(config, {
+  setStatus: (m) => {
+    statusMsg.value = m
+  },
+  persistLauncherConfig: persistLauncherConfigToDisk,
+})
+
+const {
+  text: devAnnounceBody,
+  fetchBusy: devAnnounceFetchBusy,
+  reloadFromDisk: reloadDevAnnounceFromDisk,
+  saveToDisk: saveDevAnnounceToDisk,
+  fetchRemoteAndCache: fetchDevAnnounceFromUrl,
+} = useDeveloperAnnouncements((m) => {
+  statusMsg.value = m
+})
+
 const logFilter = ref<
   'all' | 'editor' | 'oclive' | 'ollama' | 'winget' | 'bundled-ollama'
 >('all')
@@ -213,12 +228,6 @@ const filteredLogs = computed(() => {
   return logs.value.filter((l) => l.app === f)
 })
 
-const creatorEchoMessagesReversed = computed(() =>
-  [...creatorEchoMessages.value].sort((a, b) => b.createdAt - a.createdAt),
-)
-
-const creatorEchoCharCount = computed(() => [...creatorEchoDraft.value].length)
-
 const logPanelText = computed(() =>
   filteredLogs.value.map((l) => `[${l.app}][${l.stream}] ${l.line}`).join('\n'),
 )
@@ -296,9 +305,8 @@ async function loadAll() {
   try {
     const c = await invoke<LauncherConfig>('load_config')
     config.value = { ...config.value, ...c }
-    maintainerAnnouncements.value = await invoke<string>('load_maintainer_announcements')
-    creatorAnnouncements.value = await invoke<string>('load_creator_announcements')
-    await refreshCreatorEcho()
+    await refreshRolePackEchoUi()
+    await reloadDevAnnounceFromDisk()
     await refreshLocalVersions()
     await refreshWingetAvailability()
     await refreshBundledOllamaInfo()
@@ -313,83 +321,10 @@ async function saveConfig() {
     await invoke('save_config', { config: config.value })
     statusMsg.value = '配置已保存'
     await refreshLocalVersions()
+    await refreshRolePackEchoUi()
   } catch (e) {
     statusMsg.value = String(e)
   }
-}
-
-async function saveMaintainerAnnouncements() {
-  try {
-    await invoke('save_maintainer_announcements', { text: maintainerAnnouncements.value })
-    statusMsg.value = '维护者公告已保存'
-  } catch (e) {
-    statusMsg.value = String(e)
-  }
-}
-
-async function saveCreatorAnnouncements() {
-  try {
-    await invoke('save_creator_announcements', { text: creatorAnnouncements.value })
-    statusMsg.value = '创作者公告已保存'
-  } catch (e) {
-    statusMsg.value = String(e)
-  }
-}
-
-async function refreshCreatorEcho() {
-  try {
-    creatorEchoMessages.value = await invoke<CreatorEchoMessage[]>('load_creator_echo_messages')
-    creatorEchoState.value = await invoke<CreatorEchoState>('load_creator_echo_state')
-  } catch {
-    /* ignore */
-  }
-}
-
-function closeCreatorEchoModal() {
-  creatorEchoModalOpen.value = false
-  creatorEchoDraft.value = ''
-}
-
-async function openCreatorEchoModal() {
-  await refreshCreatorEcho()
-  if (creatorEchoState.value.hasSubmitted) {
-    statusMsg.value = '你已在当前电脑上留过一句创作寄语。'
-    return
-  }
-  creatorEchoDraft.value = ''
-  creatorEchoModalOpen.value = true
-}
-
-async function submitCreatorEcho() {
-  if (creatorEchoCharCount.value > CREATOR_ECHO_MAX_CHARS) {
-    statusMsg.value = `寄语请在 ${CREATOR_ECHO_MAX_CHARS} 字以内`
-    return
-  }
-  creatorEchoBusy.value = true
-  try {
-    await invoke('submit_creator_echo', { text: creatorEchoDraft.value })
-    statusMsg.value = '已保存。谢谢你的寄语。'
-    closeCreatorEchoModal()
-    await refreshCreatorEcho()
-  } catch (e) {
-    statusMsg.value = String(e)
-  } finally {
-    creatorEchoBusy.value = false
-  }
-}
-
-async function maybeAutoPromptCreatorEcho() {
-  if (autoCreatorEchoPromptShown.value) return
-  try {
-    const st = await invoke<CreatorEchoState>('load_creator_echo_state')
-    creatorEchoState.value = st
-    if (st.hasSubmitted) return
-  } catch {
-    return
-  }
-  autoCreatorEchoPromptShown.value = true
-  creatorEchoDraft.value = ''
-  creatorEchoModalOpen.value = true
 }
 
 async function pickEditorRoot() {
@@ -589,7 +524,13 @@ async function confirmInstallRolePack() {
     installModalOpen.value = false
     pendingZipPath.value = null
     await runEnvironmentDiagnose({ quiet: true })
-    void maybeAutoPromptCreatorEcho()
+    config.value.launcherEchoRoleId = roleId
+    try {
+      await persistLauncherConfigToDisk()
+    } catch (e) {
+      statusMsg.value = String(e)
+    }
+    await refreshRolePackEchoUi()
   } catch (e) {
     statusMsg.value = String(e)
   } finally {
@@ -950,7 +891,6 @@ function onDocKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     versionMenuOpen.value = false
     if (installModalOpen.value) cancelInstallRolePackModal()
-    if (creatorEchoModalOpen.value) closeCreatorEchoModal()
   }
 }
 
@@ -1024,7 +964,7 @@ onUnmounted(() => {
             <h1>{{ currentViewLabel }}</h1>
             <p class="sub">
               <template v-if="activeNav === 'start'">
-                不知道怎么下手就看这一页：先看新手指引，再看创作者公告；维护者公告放在最下方。
+                新手指引、开发者公告与创作者公告（包内寄语，只读）都在本页。
               </template>
               <template v-else-if="activeNav === 'version'">
                 对照网上发布的版本号，顺便一键打开下载页。
@@ -1148,95 +1088,24 @@ onUnmounted(() => {
         </p>
       </section>
 
-      <section class="card announce-board announce-board--creator">
-        <div class="section-title-row">
-          <h2>创作者公告</h2>
-          <HelpHint
-            v-if="announceEditEnabled"
-            text="寄语墙由每位创作者本机留一句；下方 Markdown 可作置顶说明（活动、创作提示等）。"
-          />
-          <HelpHint
-            v-else
-            text="后来的创作者在这里留下的一句话会显示在寄语墙；置顶说明由维护者写在 Markdown 里。"
-          />
-        </div>
-        <p class="hint tiny creator-echo-lead">
-          灵感来自《尼尔：机械纪元》片尾：第一次把作品装进角色目录之后，你也可以<strong>留一句话</strong>给下一个打开启动器的人。数据保存在本机；若要「汇成大海」需自行分发或汇总
-          <code>creator-echo-messages.json</code>。
-        </p>
-        <p v-if="!announceEditEnabled" class="hint tiny announce-board-hint">
-          只读。置顶：<code>creator-announcements.md</code>；寄语列表：<code>creator-echo-messages.json</code>；是否已留言：<code>creator-echo-state.json</code>。
-        </p>
+      <CreatorAnnouncementsSection
+        v-model:launcher-echo-role-id="config.launcherEchoRoleId"
+        :role-ids="rolePackRoleIds"
+        :echo-lines="rolePackEchoLines"
+        :oclive-roles-dir="config.ocliveRolesDir"
+        @persist-follow="persistLauncherEchoRole"
+        @refresh-roles="refreshRolePackEchoUi"
+        @clear-follow="clearLauncherEchoRole"
+      />
 
-        <div v-if="creatorEchoMessagesReversed.length" class="creator-echo-wall">
-          <p class="creator-echo-wall-label">后来的创作者说</p>
-          <ul class="creator-echo-list">
-            <li
-              v-for="(m, i) in creatorEchoMessagesReversed"
-              :key="`${m.createdAt}-${i}`"
-              class="creator-echo-line"
-            >
-              {{ m.text }}
-            </li>
-          </ul>
-        </div>
-        <p v-else class="hint creator-echo-empty">
-          还没有寄语。从 zip 装好第一个角色包后，我们会轻轻问你要不要写一句；也可以随时点下面按钮。
-        </p>
-
-        <div class="creator-echo-actions">
-          <button
-            v-if="!creatorEchoState.hasSubmitted"
-            type="button"
-            class="btn"
-            @click="openCreatorEchoModal"
-          >
-            我完成了第一次创作，留一句话
-          </button>
-          <p v-else class="hint tiny creator-echo-done">
-            你已在当前电脑留过一句创作寄语。若要改文案，可由维护者编辑配置目录里的 JSON，或删除
-            <code>creator-echo-state.json</code> 后重新提交（慎用）。
-          </p>
-        </div>
-
-        <div
-          v-if="!announceEditEnabled && creatorAnnouncements.trim()"
-          class="creator-announcements-sticky"
-        >
-          <p class="creator-echo-wall-label">置顶说明</p>
-          <pre class="announce-readonly announce-readonly--compact">{{ creatorAnnouncements }}</pre>
-        </div>
-        <template v-if="announceEditEnabled">
-          <p class="hint tiny">维护用：编辑置顶 Markdown（<code>creator-announcements.md</code>）</p>
-          <textarea v-model="creatorAnnouncements" class="announce" rows="7" spellcheck="false" />
-          <button type="button" class="btn" @click="saveCreatorAnnouncements">保存创作者公告</button>
-        </template>
-      </section>
-
-      <section class="card announce-board announce-board--maintainer">
-        <div class="section-title-row">
-          <h2>维护者公告</h2>
-          <HelpHint
-            v-if="announceEditEnabled"
-            text="维护者面向所有用户的公告（更新说明、兼容提醒、紧急通知）。"
-          />
-          <HelpHint
-            v-else
-            text="这段文字由维护者写好随启动器分发。普通用户不能编辑。"
-          />
-        </div>
-        <p v-if="!announceEditEnabled" class="hint tiny announce-board-hint">
-          只读。需要修改请使用维护者专用构建，或编辑配置目录中的 <code>announcements.md</code>。
-        </p>
-        <template v-if="announceEditEnabled">
-          <textarea v-model="maintainerAnnouncements" class="announce" rows="7" spellcheck="false" />
-          <button type="button" class="btn" @click="saveMaintainerAnnouncements">保存维护者公告</button>
-        </template>
-        <template v-else>
-          <p v-if="!maintainerAnnouncements.trim()" class="hint announce-empty">暂无维护者公告。</p>
-          <pre v-else class="announce-readonly">{{ maintainerAnnouncements }}</pre>
-        </template>
-      </section>
+      <DeveloperAnnouncementsSection
+        v-model:url="config.developerAnnouncementsUrl"
+        v-model:body="devAnnounceBody"
+        :announce-edit-enabled="announceEditEnabled"
+        :fetch-busy="devAnnounceFetchBusy"
+        @save="saveDevAnnounceToDisk"
+        @fetch="fetchDevAnnounceFromUrl(config.developerAnnouncementsUrl)"
+      />
         </div>
 
       <section v-else-if="activeNav === 'version'" class="view-panel card">
@@ -1868,51 +1737,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div
-        v-if="creatorEchoModalOpen"
-        class="install-modal-backdrop"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="creator-echo-modal-title"
-        @click.self="closeCreatorEchoModal"
-      >
-        <div class="install-modal-panel card creator-echo-modal-panel" @click.stop>
-          <h2 id="creator-echo-modal-title">给后来的创作者一句话</h2>
-          <p class="hint tiny">
-            每人在这台电脑上只能提交一次。一句话即可，不要换行（最多 {{ CREATOR_ECHO_MAX_CHARS }} 字）。
-          </p>
-          <textarea
-            v-model="creatorEchoDraft"
-            class="announce creator-echo-textarea"
-            rows="4"
-            spellcheck="true"
-            placeholder="例如：别怕改设定，我第三次导出才顺。"
-          />
-          <p
-            class="hint tiny creator-echo-charcount"
-            :class="{ 'creator-echo-charcount--warn': creatorEchoCharCount > CREATOR_ECHO_MAX_CHARS }"
-          >
-            {{ creatorEchoCharCount }} / {{ CREATOR_ECHO_MAX_CHARS }} 字
-          </p>
-          <div class="modal-actions">
-            <button type="button" class="btn" :disabled="creatorEchoBusy" @click="closeCreatorEchoModal">
-              稍后再说
-            </button>
-            <button
-              type="button"
-              class="btn primary"
-              :disabled="
-                creatorEchoBusy ||
-                !creatorEchoDraft.trim() ||
-                creatorEchoCharCount > CREATOR_ECHO_MAX_CHARS
-              "
-              @click="submitCreatorEcho"
-            >
-              留下这句话
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -1923,32 +1747,40 @@ onUnmounted(() => {
   min-height: 100vh;
   font-family: var(--fluent-font);
   color: var(--fluent-text-primary);
-  background: var(--fluent-bg-page);
+  background:
+    radial-gradient(120% 72% at 100% -5%, rgba(158, 164, 173, 0.16), transparent 54%),
+    radial-gradient(95% 58% at -8% 105%, rgba(130, 137, 147, 0.14), transparent 50%),
+    var(--fluent-bg-page);
   transition:
     background 0.22s ease,
     color 0.18s ease;
 }
 
 .rail {
-  width: 92px;
+  /* 宽度与图标方块（2.75rem）+ 左右对称内边距对齐 */
+  width: calc(2.75rem + 1rem);
+  box-sizing: border-box;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.45rem;
-  padding: 1rem 0.45rem;
+  padding: 1rem 0.5rem;
   border-right: 1px solid var(--fluent-border-stroke);
-  background: linear-gradient(
-    175deg,
-    var(--fluent-bg-card) 0%,
-    color-mix(in srgb, var(--fluent-bg-page) 55%, var(--fluent-bg-card)) 100%
-  );
-  box-shadow: var(--fluent-shadow-soft);
+  background: color-mix(in srgb, var(--fluent-bg-card) 78%, transparent);
+  backdrop-filter: blur(10px) saturate(110%);
+  -webkit-backdrop-filter: blur(10px) saturate(110%);
+  box-shadow:
+    var(--fluent-shadow-soft),
+    inset -1px 0 0 color-mix(in srgb, var(--fluent-border-stroke) 60%, transparent);
 }
 
 .rail-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  max-width: 2.75rem;
   gap: 0.3rem;
   padding: 0.1rem 0;
   border: none;
@@ -1958,7 +1790,9 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 0.65rem;
   font-weight: 500;
-  transition: color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    transform 0.12s ease;
 }
 
 .rail-btn:focus-visible {
@@ -1981,7 +1815,8 @@ onUnmounted(() => {
   line-height: 1;
   transition:
     background 0.15s ease,
-    color 0.15s ease;
+    color 0.15s ease,
+    box-shadow 0.2s ease;
 }
 
 .rail-btn:hover .rail-ico {
@@ -1990,24 +1825,37 @@ onUnmounted(() => {
 }
 
 .rail-btn.active .rail-ico {
-  background: var(--fluent-accent-subtle);
+  background: color-mix(in srgb, var(--fluent-accent-subtle) 70%, rgba(255, 255, 255, 0.12));
   color: var(--fluent-accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--fluent-accent) 26%, transparent),
+    0 0 10px color-mix(in srgb, var(--fluent-accent) 20%, transparent);
 }
 
 .rail-btn--accent-oclive.active .rail-ico {
   background: var(--rail-accent-oclive-bg);
   color: var(--rail-accent-oclive);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--rail-accent-oclive) 26%, transparent),
+    0 0 10px color-mix(in srgb, var(--rail-accent-oclive) 20%, transparent);
 }
 
 .rail-btn--accent-editor.active .rail-ico {
   background: var(--rail-accent-editor-bg);
   color: var(--rail-accent-editor);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--rail-accent-editor) 28%, transparent),
+    0 0 10px color-mix(in srgb, var(--rail-accent-editor) 18%, transparent);
+}
+
+.rail-btn.active {
+  color: var(--fluent-text-primary);
 }
 
 .rail-lbl {
   line-height: 1.15;
   text-align: center;
-  max-width: 100%;
+  max-width: 2.75rem;
 }
 
 .main-col {
@@ -2022,7 +1870,10 @@ onUnmounted(() => {
   flex-shrink: 0;
   padding: 1rem 1.35rem 0;
   border-bottom: 1px solid var(--fluent-border-stroke);
-  background: linear-gradient(180deg, var(--fluent-bg-card) 0%, var(--fluent-bg-page) 100%);
+  background: color-mix(in srgb, var(--fluent-bg-card) 76%, transparent);
+  backdrop-filter: blur(12px) saturate(105%);
+  -webkit-backdrop-filter: blur(12px) saturate(105%);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--fluent-border-stroke) 65%, transparent);
 }
 
 .titlebar-inner {
@@ -2062,31 +1913,54 @@ onUnmounted(() => {
 .version-dropdown-panel {
   position: absolute;
   right: 0;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   z-index: 80;
   min-width: 15rem;
-  padding: 0.35rem 0;
-  background: var(--fluent-bg-card);
+  padding: 0.4rem 0;
+  background: color-mix(in srgb, var(--fluent-bg-card) 86%, transparent);
+  backdrop-filter: blur(10px) saturate(108%);
+  -webkit-backdrop-filter: blur(10px) saturate(108%);
   border: 1px solid var(--fluent-border-stroke);
   border-radius: var(--fluent-radius-lg);
-  box-shadow: var(--fluent-shadow-card);
+  box-shadow:
+    var(--fluent-shadow-card),
+    0 12px 28px color-mix(in srgb, var(--fluent-text-primary) 8%, transparent);
+  animation: dropdown-in 0.16s ease-out;
+}
+
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dropdown-item {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 0.45rem 0.85rem;
+  padding: 0.5rem 0.9rem;
   border: none;
   background: transparent;
   font: inherit;
   font-size: 0.8125rem;
   color: var(--fluent-text-primary);
   cursor: pointer;
+  transition: background 0.12s ease;
 }
 
 .dropdown-item:hover {
   background: var(--fluent-bg-subtle);
+}
+
+.dropdown-item:focus-visible {
+  outline: none;
+  background: var(--fluent-accent-subtle);
+  box-shadow: inset 3px 0 0 var(--fluent-accent);
 }
 
 .dropdown-sep {
@@ -2101,127 +1975,12 @@ onUnmounted(() => {
   gap: 1rem;
 }
 
-.announce-board h2 {
-  margin: 0;
-}
-
-.announce-board--creator {
-  border-left: 3px solid var(--rail-accent-editor);
-}
-
-.announce-board--maintainer {
-  border-left: 3px solid var(--fluent-accent);
-}
-
-.announce-board-hint {
-  margin-top: 0;
-}
-
-.announce-readonly {
-  margin: 0;
-  padding: 0.65rem 0.75rem;
-  font-family: var(--fluent-font);
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: var(--fluent-bg-subtle);
-  border: 1px solid var(--fluent-border-stroke);
-  border-radius: var(--fluent-radius);
-  color: var(--fluent-text-primary);
-}
-
-.announce-empty {
-  margin: 0;
-  font-style: italic;
-}
-
-.creator-echo-lead {
-  margin-top: 0.35rem;
-  line-height: 1.55;
-}
-
-.creator-echo-wall {
-  margin-top: 0.75rem;
-}
-
-.creator-echo-wall-label {
-  margin: 0 0 0.5rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fluent-text-secondary);
-}
-
-.creator-echo-list {
-  display: flex;
-  max-height: 14rem;
-  flex-direction: column;
-  gap: 0.55rem;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  list-style: none;
-}
-
-.creator-echo-line {
-  margin: 0;
-  padding: 0.5rem 0.65rem;
-  border-left: 2px solid var(--rail-accent-editor);
-  border-radius: var(--fluent-radius);
-  font-size: 0.8125rem;
-  font-style: italic;
-  line-height: 1.45;
-  color: var(--fluent-text-secondary);
-  background: var(--fluent-bg-subtle);
-}
-
-.creator-echo-empty {
-  margin: 0.5rem 0 0;
-}
-
-.creator-echo-actions {
-  margin-top: 0.65rem;
-}
-
-.creator-echo-done {
-  margin: 0;
-}
-
-.creator-announcements-sticky {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--fluent-border-stroke);
-}
-
-.announce-readonly--compact {
-  margin-top: 0.35rem;
-}
-
-.creator-echo-textarea {
-  box-sizing: border-box;
-  width: 100%;
-  margin-top: 0.5rem;
-}
-
-.creator-echo-charcount {
-  margin: 0.25rem 0 0;
-}
-
-.creator-echo-charcount--warn {
-  color: var(--fluent-danger-text);
-}
-
-.creator-echo-modal-panel {
-  max-width: 26rem;
-}
-
 .titlebar h1 {
   margin: 0.15rem 0 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 1.55rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
 }
 
 .kicker {
@@ -2243,18 +2002,42 @@ onUnmounted(() => {
 
 .status {
   flex-shrink: 0;
-  max-width: 1100px;
+  box-sizing: border-box;
+  max-width: min(1100px, calc(100% - 2.7rem));
   width: 100%;
-  margin: 0 auto;
-  padding: 0.35rem 1.35rem 0;
+  margin: 0.4rem auto 0;
+  padding: 0.5rem 1rem 0.55rem;
   font-size: 0.8125rem;
-  color: var(--fluent-accent);
+  line-height: 1.45;
+  color: var(--fluent-text-primary);
+  text-align: center;
+  border-radius: var(--fluent-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--fluent-border-stroke) 75%, rgba(255, 255, 255, 0.25));
+  background: color-mix(in srgb, var(--fluent-bg-card) 78%, transparent);
+  backdrop-filter: blur(9px) saturate(105%);
+  -webkit-backdrop-filter: blur(9px) saturate(105%);
+  box-shadow:
+    var(--fluent-shadow-soft),
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
+  animation: status-in 0.28s ease-out;
+}
+
+@keyframes status-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .scroll-main {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem 1.35rem 2rem;
+  padding: 1.15rem 1.35rem 2.25rem;
+  scroll-padding-top: 0.75rem;
 }
 
 .scroll-main > .view-panel {
@@ -2280,19 +2063,34 @@ onUnmounted(() => {
 }
 
 .mobile-nav-btn {
-  padding: 0.35rem 0.55rem;
-  border-radius: var(--fluent-radius);
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--fluent-radius-lg);
   border: 1px solid var(--fluent-border-stroke);
   background: var(--fluent-bg-card);
   color: var(--fluent-text-primary);
   font-size: 0.78rem;
+  font-weight: 500;
   cursor: pointer;
+  box-shadow: var(--fluent-shadow-soft);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.mobile-nav-btn:hover {
+  background: var(--fluent-bg-subtle);
+  border-color: var(--fluent-border-control);
 }
 
 .mobile-nav-btn.active {
-  border-color: var(--fluent-accent);
+  border-color: color-mix(in srgb, var(--fluent-accent) 45%, var(--fluent-border-stroke));
   background: var(--fluent-accent-subtle);
   color: var(--fluent-accent);
+  font-weight: 600;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--fluent-accent) 28%, transparent),
+    0 0 10px color-mix(in srgb, var(--fluent-accent) 16%, transparent);
 }
 
 @media (max-width: 900px) {
@@ -2305,11 +2103,15 @@ onUnmounted(() => {
   .mobile-nav {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: 0.45rem;
     max-width: 1100px;
     width: 100%;
     margin: 0 auto;
-    padding: 0 1.35rem 0.5rem;
+    padding: 0.35rem 1.35rem 0.65rem;
+    border-bottom: 1px solid var(--fluent-border-stroke);
+    background: color-mix(in srgb, var(--fluent-bg-card) 82%, transparent);
+    backdrop-filter: blur(8px) saturate(104%);
+    -webkit-backdrop-filter: blur(8px) saturate(104%);
   }
 }
 
@@ -2325,11 +2127,16 @@ onUnmounted(() => {
 
 .card {
   scroll-margin-top: 0.75rem;
-  background: var(--fluent-bg-card);
+  background: color-mix(in srgb, var(--fluent-bg-card) 82%, transparent);
+  backdrop-filter: blur(9px) saturate(106%);
+  -webkit-backdrop-filter: blur(9px) saturate(106%);
   border: 1px solid var(--fluent-border-stroke);
   border-radius: var(--fluent-radius-lg);
   padding: 1rem 1.15rem;
   box-shadow: var(--fluent-shadow-card);
+  transition:
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
 }
 
 .card h2 {
@@ -2732,7 +2539,9 @@ input[type='text']:focus {
   box-shadow: var(--fluent-shadow-soft);
   transition:
     background 0.15s ease,
-    border-color 0.15s ease;
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
 }
 
 .btn:hover {
@@ -2740,15 +2549,43 @@ input[type='text']:focus {
   border-color: var(--fluent-text-secondary);
 }
 
+.btn:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--fluent-shadow-soft),
+    0 0 0 2px var(--fluent-bg-page),
+    0 0 0 4px var(--fluent-border-focus);
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
 .btn.primary {
   background: var(--fluent-accent);
   color: #fff;
   border-color: transparent;
-  box-shadow: var(--fluent-shadow-soft);
+  box-shadow:
+    var(--fluent-shadow-soft),
+    0 1px 0 color-mix(in srgb, #fff 18%, transparent);
 }
 
 .btn.primary:hover {
   background: var(--fluent-accent-hover);
+}
+
+.btn.primary:focus-visible {
+  box-shadow:
+    var(--fluent-shadow-soft),
+    0 0 0 2px var(--fluent-bg-page),
+    0 0 0 4px var(--fluent-border-focus);
+}
+
+.btn:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn.danger {
@@ -2807,22 +2644,22 @@ input[type='text']:focus {
   max-height: 340px;
   overflow: auto;
   padding: 0.65rem 0.85rem;
-  background: #1b1b1b;
-  color: #e8e8e8;
-  border-radius: var(--fluent-radius);
-  border: 1px solid var(--fluent-border-stroke);
+  background: #1a1c22;
+  color: #e4e6eb;
+  border-radius: var(--fluent-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--fluent-border-stroke) 40%, #2a2d36);
   font-family: var(--fluent-mono);
   font-size: 0.72rem;
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
 }
 
-@media (prefers-color-scheme: dark) {
-  .log {
-    background: #0c0c0c;
-    color: #d4d4d4;
-  }
+:global(html[data-theme='dark']) .log {
+  background: #0d0f14;
+  color: #c8ccd4;
+  border-color: #2a303c;
 }
 
 .err {
@@ -2853,8 +2690,16 @@ input[type='text']:focus {
   width: 7.5rem;
 }
 
+.diag-table tbody tr {
+  transition: background 0.12s ease;
+}
+
+.diag-table tbody tr:hover {
+  background: color-mix(in srgb, var(--fluent-bg-subtle) 72%, transparent);
+}
+
 .diag-table td {
-  padding: 0.4rem 0;
+  padding: 0.45rem 0;
   line-height: 1.4;
 }
 
@@ -2885,16 +2730,36 @@ input[type='text']:focus {
   color: var(--fluent-accent-hover);
 }
 
+.guide-card {
+  border-left: 3px solid var(--fluent-accent);
+  padding: 1.15rem 1.25rem 1.2rem;
+  box-shadow:
+    var(--fluent-shadow-card),
+    inset 0 1px 0 color-mix(in srgb, var(--fluent-accent) 14%, transparent);
+}
+
 .guide-card .guide-steps {
-  margin: 0.75rem 0 0;
-  padding-left: 1.25rem;
+  margin: 1rem 0 0;
+  padding-left: 1.15rem;
+  list-style: disc;
+  list-style-position: outside;
   line-height: 1.65;
   font-size: 0.9rem;
   color: var(--fluent-text-primary);
 }
 
 .guide-card .guide-steps li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.7rem;
+  padding-left: 0.2rem;
+  text-wrap: pretty;
+}
+
+.guide-card .guide-steps li:last-child {
+  margin-bottom: 0;
+}
+
+.guide-card .guide-steps li::marker {
+  color: color-mix(in srgb, var(--fluent-text-secondary) 70%, var(--fluent-text-primary));
 }
 
 .guide-links {
@@ -2990,27 +2855,41 @@ input[type='text']:focus {
 }
 
 .guide-lead {
-  font-size: 0.92rem;
+  font-size: 0.94rem;
   color: var(--fluent-text-primary);
+  padding: 0.55rem 0.7rem;
+  margin-bottom: 0.65rem;
+  border-radius: var(--fluent-radius);
+  border: 1px solid color-mix(in srgb, var(--fluent-border-stroke) 78%, rgba(255, 255, 255, 0.2));
+  background: color-mix(in srgb, var(--fluent-bg-subtle) 78%, transparent);
+  line-height: 1.55;
+  text-wrap: pretty;
 }
 
 .ver-quick-dl {
-  margin: 0.75rem 0;
-  padding: 0.65rem 0.75rem;
-  border-radius: var(--fluent-radius);
+  margin: 0.85rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: var(--fluent-radius-lg);
   border: 1px solid var(--fluent-border-stroke);
-  background: var(--fluent-bg-subtle);
+  border-left: 3px solid color-mix(in srgb, var(--fluent-text-secondary) 55%, var(--fluent-border-stroke));
+  background: color-mix(in srgb, var(--fluent-bg-subtle) 82%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: var(--fluent-shadow-soft);
 }
 .ver-quick-label {
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--fluent-text-secondary);
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.5rem;
 }
 .ver-quick-btns {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 
 .ollama-model-box {
@@ -3047,15 +2926,34 @@ input[type='text']:focus {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(0, 0, 0, 0.45);
+  background: color-mix(in srgb, var(--fluent-text-primary) 38%, transparent);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
 }
 
 .install-modal-panel {
   width: min(440px, 100%);
   max-height: min(90vh, 640px);
   overflow: auto;
-  padding: 1.1rem 1.25rem;
-  box-shadow: var(--fluent-shadow-soft);
+  padding: 1.15rem 1.3rem;
+  border-radius: var(--fluent-radius-xl);
+  border: 1px solid var(--fluent-border-stroke);
+  background: var(--fluent-bg-card);
+  box-shadow:
+    var(--fluent-shadow-card),
+    0 24px 48px color-mix(in srgb, var(--fluent-text-primary) 12%, transparent);
+  animation: modal-in 0.22s ease-out;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .install-modal-panel h2 {

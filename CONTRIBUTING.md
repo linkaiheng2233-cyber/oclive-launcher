@@ -11,6 +11,10 @@
 
 合并前请保证前端构建与 Rust 侧能通过；若改动 Tauri 或子进程逻辑，建议在 Windows 上实际跑一遍「启动 / 环境检测 / 日志」。
 
+## 跨仓约定：随包寄语文件名
+
+若需重命名包内随包寄语文件（默认 **`creator_message.txt`**），须**同步**更新：`src/lib/rolePackCreatorMessage.ts` 中的 **`ROLE_PACK_CREATOR_MESSAGE_FILENAME`**、`src-tauri/src/role_creator_message.rs` 中的路径拼接，以及 **oclive-pack-editor** 内同源常量（见该仓库 [CONTRIBUTING.md](https://github.com/linkaiheng2233-cyber/oclive-pack-editor/blob/main/CONTRIBUTING.md)）。正文长度与「首行」语义以各仓实现为准；权威职责表见根目录 [README.md](README.md) **随包寄语与职责边界**。
+
 ## 发版检查清单（维护者）
 
 在创建 **GitHub Release** 或对外分发安装包前，建议按顺序确认：

@@ -87,9 +87,9 @@
 
 ### 仓库内的远程开发者公告示例
 
-维护者可编辑本仓库 **[docs/launcher-developer-announcements.md](./docs/launcher-developer-announcements.md)**，发布后把 **Raw** 链接填进启动器（`main` 分支示例）：
+维护者可编辑本仓库 **[docs/announcements/developer.md](./docs/announcements/developer.md)**（索引见 **[docs/announcements/README.md](./docs/announcements/README.md)**），发布后把 **Raw** 链接填进启动器（`main` 分支示例）：
 
-`https://raw.githubusercontent.com/linkaiheng2233-cyber/oclive-launcher/main/docs/launcher-developer-announcements.md`
+`https://raw.githubusercontent.com/linkaiheng2233-cyber/oclive-launcher/main/docs/announcements/developer.md`
 
 ## 随包寄语与职责边界（创作者公告）
 

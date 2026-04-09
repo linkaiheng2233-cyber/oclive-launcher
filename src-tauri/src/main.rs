@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod announcements;
 mod oclive_env;
 mod release_download;
+mod role_creator_message;
 mod role_pack;
 
 use serde::{Deserialize, Serialize};
@@ -11,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
@@ -50,6 +52,9 @@ struct LauncherConfig {
     /// 启动 oclive 时注入环境变量 `OCLIVE_ROLES_DIR`（须为已存在的目录：其下为各 `角色id/`）。
     #[serde(default)]
     oclive_roles_dir: String,
+    /// 启动器「随角色包寄语」跟随的 `roles` 子目录名（与 `manifest.json` 所在文件夹同名）；空表示不跟随。
+    #[serde(default)]
+    launcher_echo_role_id: String,
     /// `ollama` | `remote` — 注入 `OCLIVE_LLM_BACKEND`，运行时覆盖角色包内 `plugin_backends.llm`。
     #[serde(default = "default_oclive_llm_mode")]
     oclive_llm_mode: String,
@@ -61,6 +66,9 @@ struct LauncherConfig {
     /// 可选：`OCLIVE_REMOTE_LLM_TIMEOUT_MS`（毫秒，正整数）。
     #[serde(default)]
     oclive_remote_llm_timeout_ms: String,
+    /// 开发者公告：可选 HTTPS/HTTP 地址，启动器可「拉取最新」覆盖本地 `announcements.md` 缓存。
+    #[serde(default)]
+    developer_announcements_url: String,
 }
 
 fn default_npm() -> String {
@@ -104,10 +112,12 @@ impl Default for LauncherConfig {
             github_oclive_owner: String::new(),
             github_oclive_repo: String::new(),
             oclive_roles_dir: String::new(),
+            launcher_echo_role_id: String::new(),
             oclive_llm_mode: default_oclive_llm_mode(),
             oclive_remote_llm_url: String::new(),
             oclive_remote_llm_token: String::new(),
             oclive_remote_llm_timeout_ms: String::new(),
+            developer_announcements_url: String::new(),
         };
         ensure_github_upstream_defaults(&mut s);
         s
@@ -127,14 +137,6 @@ fn app_config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app_config_dir(app)?.join("launcher-config.json"))
-}
-
-fn maintainer_announcements_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    Ok(app_config_dir(app)?.join("announcements.md"))
-}
-
-fn creator_announcements_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    Ok(app_config_dir(app)?.join("creator-announcements.md"))
 }
 
 fn ensure_parent_dir(path: &Path) -> Result<(), String> {
@@ -174,136 +176,6 @@ fn save_config(app: tauri::AppHandle, config: LauncherConfig) -> Result<(), Stri
     ensure_parent_dir(&path)?;
     let s = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     std::fs::write(&path, s).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn load_maintainer_announcements(app: tauri::AppHandle) -> Result<String, String> {
-    let path = maintainer_announcements_path(&app)?;
-    if !path.exists() {
-        return Ok("# 维护者公告\n\n在这里写维护者面向所有用户的公告（支持 Markdown 纯文本展示）。\n".into());
-    }
-    std::fs::read_to_string(&path).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn save_maintainer_announcements(app: tauri::AppHandle, text: String) -> Result<(), String> {
-    let path = maintainer_announcements_path(&app)?;
-    ensure_parent_dir(&path)?;
-    std::fs::write(&path, text.as_bytes()).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn load_creator_announcements(app: tauri::AppHandle) -> Result<String, String> {
-    let path = creator_announcements_path(&app)?;
-    if !path.exists() {
-        return Ok("# 创作者公告\n\n在这里写创作者想对用户说的话（支持 Markdown 纯文本展示）。\n".into());
-    }
-    std::fs::read_to_string(&path).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn save_creator_announcements(app: tauri::AppHandle, text: String) -> Result<(), String> {
-    let path = creator_announcements_path(&app)?;
-    ensure_parent_dir(&path)?;
-    std::fs::write(&path, text.as_bytes()).map_err(|e| e.to_string())
-}
-
-fn creator_echo_messages_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    Ok(app_config_dir(app)?.join("creator-echo-messages.json"))
-}
-
-fn creator_echo_state_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    Ok(app_config_dir(app)?.join("creator-echo-state.json"))
-}
-
-const CREATOR_ECHO_MAX_CHARS: usize = 160;
-const CREATOR_ECHO_MAX_ENTRIES: usize = 500;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct CreatorEchoMessage {
-    text: String,
-    created_at: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-struct CreatorEchoState {
-    #[serde(default)]
-    has_submitted: bool,
-}
-
-fn load_creator_echo_messages_inner(app: &tauri::AppHandle) -> Result<Vec<CreatorEchoMessage>, String> {
-    let path = creator_echo_messages_path(app)?;
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-    let s = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    Ok(serde_json::from_str(&s).unwrap_or_default())
-}
-
-fn load_creator_echo_state_inner(app: &tauri::AppHandle) -> Result<CreatorEchoState, String> {
-    let path = creator_echo_state_path(app)?;
-    if !path.exists() {
-        return Ok(CreatorEchoState::default());
-    }
-    let s = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    Ok(serde_json::from_str(&s).unwrap_or_default())
-}
-
-#[tauri::command]
-fn load_creator_echo_messages(app: tauri::AppHandle) -> Result<Vec<CreatorEchoMessage>, String> {
-    load_creator_echo_messages_inner(&app)
-}
-
-#[tauri::command]
-fn load_creator_echo_state(app: tauri::AppHandle) -> Result<CreatorEchoState, String> {
-    load_creator_echo_state_inner(&app)
-}
-
-#[tauri::command]
-fn submit_creator_echo(app: tauri::AppHandle, text: String) -> Result<(), String> {
-    let text = text.trim();
-    if text.is_empty() {
-        return Err("寄语不能为空".into());
-    }
-    if text.chars().count() > CREATOR_ECHO_MAX_CHARS {
-        return Err(format!("寄语请在 {} 字以内", CREATOR_ECHO_MAX_CHARS));
-    }
-    if text.contains('\n') || text.contains('\r') {
-        return Err("请写成一句话，不要换行".into());
-    }
-
-    let state_path = creator_echo_state_path(&app)?;
-    let mut state = load_creator_echo_state_inner(&app)?;
-    if state.has_submitted {
-        return Err("本机已留过一句创作者寄语（每人仅限一次）".into());
-    }
-
-    let mut messages = load_creator_echo_messages_inner(&app)?;
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| e.to_string())?
-        .as_millis() as i64;
-    messages.push(CreatorEchoMessage {
-        text: text.to_string(),
-        created_at: ts,
-    });
-    if messages.len() > CREATOR_ECHO_MAX_ENTRIES {
-        let drop_n = messages.len() - CREATOR_ECHO_MAX_ENTRIES;
-        messages.drain(0..drop_n);
-    }
-
-    let msg_path = creator_echo_messages_path(&app)?;
-    ensure_parent_dir(&msg_path)?;
-    ensure_parent_dir(&state_path)?;
-    let msg_json = serde_json::to_string_pretty(&messages).map_err(|e| e.to_string())?;
-    std::fs::write(&msg_path, msg_json).map_err(|e| e.to_string())?;
-
-    state.has_submitted = true;
-    let state_json = serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?;
-    std::fs::write(&state_path, state_json).map_err(|e| e.to_string())?;
-    Ok(())
 }
 
 #[tauri::command]
@@ -1117,13 +989,14 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             load_config,
             save_config,
-            load_maintainer_announcements,
-            save_maintainer_announcements,
-            load_creator_announcements,
-            save_creator_announcements,
-            load_creator_echo_messages,
-            load_creator_echo_state,
-            submit_creator_echo,
+            announcements::load_maintainer_announcements,
+            announcements::save_maintainer_announcements,
+            announcements::fetch_remote_announcement_text,
+            announcements::load_creator_announcements,
+            announcements::save_creator_announcements,
+            role_creator_message::list_role_ids_with_manifest,
+            role_creator_message::read_role_creator_message_lines,
+            role_creator_message::write_role_creator_message,
             pick_folder,
             pick_exe,
             read_package_version,

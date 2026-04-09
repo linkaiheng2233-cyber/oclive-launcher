@@ -2,6 +2,10 @@
 
 本文件随 **Git 标签 / Release** 更新；维护者发版步骤见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
+## [Unreleased]
+
+- **随包寄语**：包内 `creator_message.txt` 首行由启动器读取；UI 与 Rust 侧统一非空首行解析；README **随包寄语与职责边界** 与公告文件（`announcements.md` / `creator-announcements.md`）区分说明；CONTRIBUTING **跨仓约定**。
+
 ## 0.1.1
 
 - **发版与文档**：GitHub Actions `release.yml`（`v*` / 手动触发）；根目录 CHANGELOG / CONTRIBUTING；README 与「附带 Ollama」说明；`scripts/sync-ollama-installer.mjs` 与 `src-tauri/bundled/ollama/README.txt`。

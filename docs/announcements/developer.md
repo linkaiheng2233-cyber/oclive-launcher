@@ -2,9 +2,9 @@
 
 本文件由仓库维护者编辑，供用户在启动器「新手入门 → 开发者公告」中通过 **远程正文地址** 拉取（需使用 GitHub **Raw** 链接）。
 
-**Raw 地址示例**（请按实际分支名替换 `main`）：
+**Raw 地址示例**（分支 `main`）：
 
-`https://raw.githubusercontent.com/linkaiheng2233-cyber/oclive-launcher/main/docs/launcher-developer-announcements.md`
+`https://raw.githubusercontent.com/linkaiheng2233-cyber/oclive-launcher/main/docs/announcements/developer.md`
 
 ---
 
@@ -12,7 +12,7 @@
 
 - 启动器用于统一配置 **oclive 运行时**、**角色包编写器** 路径，并汇总子进程日志。
 - 新手入门页提供 **开发者公告**（本文件）与 **创作者公告**（角色包内 `creator_message.txt`，由编写器导出）。
-- 更多说明见仓库根目录 [README.md](../README.md)。
+- 更多说明见仓库根目录 [README.md](../../README.md)。
 
 ## 使用提示
 
