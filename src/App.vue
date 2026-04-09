@@ -545,6 +545,24 @@ const releasesOcliveUrl = computed(() => {
   return `https://github.com/${o}/${r}/releases`
 })
 
+/** OCLive 市场站的「版本下载」页；换域名或仓库名时在 .env 里设 VITE_VERSIONS_PAGE_URL */
+const versionsListingPageUrl = computed(() => {
+  const u = (import.meta.env.VITE_VERSIONS_PAGE_URL || '').trim()
+  if (u) return u
+  return 'https://linkaiheng2233-cyber.github.io/oclive-plugin-market/versions'
+})
+
+async function openVersionsListingInBrowser() {
+  try {
+    await invoke('open_url', { url: versionsListingPageUrl.value })
+    statusMsg.value = '已在浏览器打开版本列表页'
+    closeVersionMenu()
+  } catch (e) {
+    statusMsg.value = String(e)
+    closeVersionMenu()
+  }
+}
+
 async function resetLauncherConfig() {
   if (
     !confirm(
@@ -713,11 +731,15 @@ onUnmounted(() => {
                 版本 ▾
               </button>
               <div v-if="versionMenuOpen" class="version-dropdown-panel" role="menu">
+                <button type="button" class="dropdown-item" role="menuitem" @click="openVersionsListingInBrowser">
+                  网站上看版本列表（GitHub Pages）
+                </button>
+                <hr class="dropdown-sep" />
                 <button type="button" class="dropdown-item" role="menuitem" @click="goVersionPage">
-                  打开「版本与下载」页
+                  打开本机「版本与下载」页
                 </button>
                 <button type="button" class="dropdown-item" role="menuitem" @click="goVersionPageAndCheck">
-                  检查更新（进入版本页并拉取）
+                  检查更新（本机页并拉取）
                 </button>
                 <hr class="dropdown-sep" />
                 <button type="button" class="dropdown-item" role="menuitem" @click="openEditorReleasesFromMenu">
@@ -794,7 +816,8 @@ onUnmounted(() => {
             <strong>先把环境备好</strong>：开发用要装 <strong>Node</strong>；电脑本地跑对话大脑要装 <strong>Ollama</strong>。第一次打开启动器会自动帮你测一遍，也可随时去「环境」点「重新检测」。
           </li>
           <li>
-            <strong>下载或克隆软件</strong>：点右上角「版本」里的链接能跳到 GitHub 下载；会开发的同学也可以把仓库克隆到本地。
+            <strong>下载或克隆软件</strong>：打开 OCLive 市场网站的<strong>版本下载</strong>页可一次看到各软件发布列表；也可点启动器右上角「版本」里的链接进
+            GitHub。会开发的同学也可以把仓库克隆到本地。
           </li>
           <li>
             <strong>在「启动」里填路径</strong>：告诉启动器编写器和 oclive 在哪（网页 / 文件夹 / exe 三选一）；再填「角色包根目录」让聊天软件找得到角色（可点「从 oclive 仓库填入」偷懒）。
