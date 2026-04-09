@@ -2,13 +2,14 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import HelpHint from './components/HelpHint.vue'
 
 const VIEW_LABELS: Record<string, string> = {
-  start: '第一次使用',
-  announce: '公告栏',
-  version: '版本与更新',
-  apps: '启动应用',
-  assistant: '环境与排障',
+  start: '新手入门',
+  announce: '公告通知',
+  version: '版本与下载',
+  apps: '启动软件',
+  assistant: '环境检查',
   logs: '运行日志',
 }
 
@@ -574,7 +575,7 @@ function clearLogs() {
 }
 
 const navItems = [
-  { id: 'start', label: '上手', icon: '🚀' },
+  { id: 'start', label: '新手', icon: '🚀' },
   { id: 'announce', label: '公告', icon: '📢' },
   { id: 'version', label: '版本', icon: '📦' },
   { id: 'apps', label: '启动', icon: '▶' },
@@ -648,12 +649,22 @@ onUnmounted(() => {
             <p class="kicker">oclive · 工具链</p>
             <h1>{{ currentViewLabel }}</h1>
             <p class="sub">
-              <template v-if="activeNav === 'start'">不管你是想先聊天、先做角色包，还是两样都试：下面是一条最常走的路，你也可以按自己的节奏跳步。</template>
-              <template v-else-if="activeNav === 'announce'">编辑面向创作者的通知；与版本、启动、日志互不干扰，按需切换左侧栏目。</template>
-              <template v-else-if="activeNav === 'version'">对照 GitHub Release 与本地 package.json 版本。</template>
-              <template v-else-if="activeNav === 'apps'">配置并启动角色包编写器与 oclive 运行时（无额外终端窗口）。</template>
-              <template v-else-if="activeNav === 'assistant'">检测 Node / npm / Ollama 与项目路径，降低上手门槛；复杂问题仍见 README 与上游文档。</template>
-              <template v-else>查看子进程输出；可筛选编写器、oclive 或 ollama pull。</template>
+              <template v-if="activeNav === 'start'">
+                不知道怎么下手就看这一页：按顺序做一遍，就能从「写设定」到「开聊」。
+              </template>
+              <template v-else-if="activeNav === 'announce'">
+                写一段给创作者看的说明，只保存在你电脑上；和别的页面互不打扰。
+              </template>
+              <template v-else-if="activeNav === 'version'">
+                对照网上发布的版本号，顺便一键打开下载页。
+              </template>
+              <template v-else-if="activeNav === 'apps'">
+                先配好聊天软件（oclive）和写设定的工具（编写器），再点按钮打开；一般不用开黑窗口。
+              </template>
+              <template v-else-if="activeNav === 'assistant'">
+                看看 Node、Ollama、文件夹路径对不对；不对就按提示装或改路径。
+              </template>
+              <template v-else>软件在后台打印的信息都在这里，出问题先来这里瞄一眼。</template>
             </p>
           </div>
           <button type="button" class="btn primary" @click="saveConfig">保存配置</button>
@@ -677,29 +688,34 @@ onUnmounted(() => {
 
       <div class="scroll-main">
         <section v-if="activeNav === 'start'" class="view-panel card guide-card">
-        <h2>欢迎来到 oclive 工具链</h2>
+        <div class="section-title-row">
+          <h2>新手照着做就行</h2>
+          <HelpHint
+            text="启动器帮你把「写角色 → 放进文件夹 → 打开聊天软件」串起来。不必一次全懂，哪步卡了就去左边「环境」看检测结果。"
+          />
+        </div>
         <p class="hint guide-lead">
-          你完全可以只做玩家、只做创作者，或两样都试——没有固定顺序。下面用最少步骤把<strong>编写器 → 角色包 → 运行时</strong>串起来；细节随时可在「版本」「环境」里补全。
+          你可以只聊天、只做角色，或两个都来——下面是一条<strong>最省事</strong>的路线：<strong>写设定 → 放进角色文件夹 → 开 oclive 聊天</strong>。细节以后在「版本」「环境」里慢慢补。
         </p>
         <p class="hint">
-          三个仓库各管一摊：<strong>运行时</strong>（oclivenewnew）、<strong>角色包编写器</strong>（oclive-pack-editor）、<strong>启动器</strong>（本应用）。角色内容落在磁盘上的
-          <code>roles/</code> 根（<code>OCLIVE_ROLES_DIR</code>），由启动器在启动 oclive 时可选注入。
+          三个东西分工不同：<strong>本程序</strong>负责一键打开；<strong>编写器</strong>用来写内容；<strong>oclive</strong>是聊天窗口。角色文件都放在磁盘上的
+          <code>roles</code> 一类文件夹里（启动器里叫「角色包根目录」）。
         </p>
         <ol class="guide-steps">
           <li>
-            <strong>环境</strong>：安装 <strong>Node.js LTS</strong>；若要本地对话再装 <strong>Ollama</strong>。首次打开本启动器时会<strong>自动检测一次</strong>环境，也可随时在「环境」页点「重新检测」。
+            <strong>先把环境备好</strong>：开发用要装 <strong>Node</strong>；电脑本地跑对话大脑要装 <strong>Ollama</strong>。第一次打开启动器会自动帮你测一遍，也可随时去「环境」点「重新检测」。
           </li>
           <li>
-            <strong>获取软件</strong>：「版本」页可打开<strong>编写器 / 运行时</strong>的 GitHub <strong>Releases</strong> 下载安装包；或克隆仓库本地开发（同级目录最省事）。
+            <strong>下载或克隆软件</strong>：「版本」页能跳到 GitHub 下载安装包；会开发的同学也可以把仓库克隆到本地。
           </li>
           <li>
-            <strong>配置启动器</strong>：在「启动」页填写编写器与 oclive 的<strong>项目根</strong>或 <strong>exe</strong>；在 oclive 卡片填写<strong>角色包根目录</strong>（可用「从 oclive 仓库填入」指向仓库内 <code>roles/</code>）。
+            <strong>在「启动」里填路径</strong>：告诉启动器编写器和 oclive 在哪（网页 / 文件夹 / exe 三选一）；再填「角色包根目录」让聊天软件找得到角色（可点「从 oclive 仓库填入」偷懒）。
           </li>
           <li>
-            <strong>角色包</strong>：用编写器导出 zip 并解压到 <code>OCLIVE_ROLES_DIR/某角色id/</code>，或使用编写器「写入文件夹」。
+            <strong>准备角色文件</strong>：编写器导出 zip，解压到角色目录里对应角色文件夹；或用编写器自带的「写入文件夹」。
           </li>
           <li>
-            <strong>开聊</strong>：启动 oclive，在应用内选角并开始对话。若已装 Ollama，请记得按需 <code>ollama pull</code> 拉取模型（见「环境」页说明）。
+            <strong>开聊</strong>：从启动器启动 oclive，在软件里选角色对话。用 Ollama 的话记得先拉模型（「环境」页有快捷按钮）。
           </li>
         </ol>
         <p class="hint guide-links">
@@ -716,31 +732,36 @@ onUnmounted(() => {
       </section>
 
         <section v-else-if="activeNav === 'announce'" class="view-panel card">
-        <h2>公告栏</h2>
-        <p class="hint">编辑后点击保存；内容存于本机应用配置目录，便于你写面向创作者的通知。</p>
+        <div class="section-title-row">
+          <h2>给创作者看的公告</h2>
+          <HelpHint text="写在这儿的字只存在你电脑里，用来提醒自己或同伴；不会自动发到网上。" />
+        </div>
+        <p class="hint">改完记得点「保存公告」。和版本号、启动按钮、日志不是一回事。</p>
         <textarea v-model="announcements" class="announce" rows="14" spellcheck="false" />
         <button type="button" class="btn" @click="saveAnnouncements">保存公告</button>
       </section>
 
       <section v-else-if="activeNav === 'version'" class="view-panel card">
-        <h2>版本与更新</h2>
+        <div class="section-title-row">
+          <h2>看版本、去下载</h2>
+          <HelpHint
+            text="左边是网上最新发布号，右边是你本机仓库里 package.json 的版本。用自己 fork 的话把 owner/repo 改成你的。"
+          />
+        </div>
         <p class="hint">
-          默认已填入<strong>上游</strong> GitHub 仓库名，可直接「检查更新」或打开 Release 下载安装包；若你使用自己的 fork，请改成你的 <code>owner/repo</code>。
+          默认已经填了官方仓库名；点下面按钮会直接跳到 GitHub 发布页下载安装包。
         </p>
         <div class="ver-quick-dl">
-          <span class="ver-quick-label">快速下载（跳转各仓库 Releases 页）</span>
+          <span class="ver-quick-label">一键打开下载页</span>
           <div class="ver-quick-btns">
             <button type="button" class="btn" @click="openRelease(releasesEditorUrl)">编写器 Releases</button>
             <button type="button" class="btn" @click="openRelease(releasesOcliveUrl)">oclive 运行时 Releases</button>
           </div>
         </div>
-        <p class="hint">
-          填写 GitHub <code>owner</code> / <code>repo</code> 后点「检查更新」，拉取最新 Release
-         （需仓库有公开 Release 或你有权访问）。
-        </p>
+        <p class="hint">填好仓库名后点「检查更新」，会把网上最新 Tag 和本机版本并排给你看（仓库要能在 GitHub 上访问）。</p>
 
         <div class="gh-row">
-          <label>编写器仓库</label>
+          <label>编写器在哪个仓库</label>
           <div class="gh-inputs">
             <input v-model="config.githubEditorOwner" placeholder="owner" />
             <span>/</span>
@@ -748,11 +769,11 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="ver-line">
-          <span>本地（package.json）</span>
+          <span>本机版本</span>
           <strong>{{ editorLocalVer ?? '—' }}</strong>
         </div>
         <div class="ver-line" v-if="editorRemote">
-          <span>远端最新</span>
+          <span>网上最新</span>
           <strong>{{ editorRemote.tagName }}</strong>
           <button type="button" class="btn tiny" @click="openRelease(editorRemote.htmlUrl)">
             打开发布页
@@ -762,7 +783,7 @@ onUnmounted(() => {
         <hr class="sep" />
 
         <div class="gh-row">
-          <label>oclive 仓库</label>
+          <label>oclive 聊天软件在哪个仓库</label>
           <div class="gh-inputs">
             <input v-model="config.githubOcliveOwner" placeholder="owner" />
             <span>/</span>
@@ -770,11 +791,11 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="ver-line">
-          <span>本地（package.json）</span>
+          <span>本机版本</span>
           <strong>{{ ocliveLocalVer ?? '—' }}</strong>
         </div>
         <div class="ver-line" v-if="ocliveRemote">
-          <span>远端最新</span>
+          <span>网上最新</span>
           <strong>{{ ocliveRemote.tagName }}</strong>
           <button type="button" class="btn tiny" @click="openRelease(ocliveRemote.htmlUrl)">
             打开发布页
@@ -786,15 +807,19 @@ onUnmounted(() => {
       </section>
 
     <section v-else-if="activeNav === 'assistant'" class="view-panel card">
-        <h2>环境与排障</h2>
+        <div class="section-title-row">
+          <h2>本机环境一眼看完</h2>
+          <HelpHint
+            text="下面表格逐项打勾：绿的算过关，红的就是还要装软件或改路径。看不懂的名词可以点「展开」看白话说明。"
+          />
+        </div>
         <div v-if="envDiag && nodeNeedsAttention" class="banner-warn banner-node" role="status">
-          <strong>Node.js / npm 未就绪</strong>：开发模式（<code>npm run …</code>）需要本机已安装 Node LTS 且可在终端执行
-          <code>node</code> / <code>npm</code>。若仅用 exe 模式启动编写器与 oclive，可忽略此项。
-          <button type="button" class="btn tiny" @click="openRelease('https://nodejs.org/')">打开 Node.js 下载页</button>
+          <strong>没检测到 Node / npm</strong>：只有当你要用「开发模式」跑源码时才必须装；若只用安装包 exe，可以忽略。
+          <button type="button" class="btn tiny" @click="openRelease('https://nodejs.org/')">去下 Node</button>
         </div>
         <div v-if="envDiag && ollamaNeedsAttention" class="banner-warn" role="status">
-          <strong>Ollama 未就绪</strong>：未检测到 CLI 或 <code>127.0.0.1:11434</code> 不可访问。对话需要本地模型时，请先安装并启动 Ollama。
-          <button type="button" class="btn tiny" @click="openRelease('https://ollama.com/download')">打开 Ollama 下载页</button>
+          <strong>Ollama 没连上</strong>：打算让对话走本机模型时，需要先装好并打开 Ollama（托盘里常驻）。
+          <button type="button" class="btn tiny" @click="openRelease('https://ollama.com/download')">去下 Ollama</button>
           <button
             v-if="wingetAvailable"
             type="button"
@@ -802,7 +827,7 @@ onUnmounted(() => {
             :disabled="wingetInstallBusy"
             @click="installOllamaViaWinget"
           >
-            一键安装（winget）
+            winget 一键装
           </button>
           <button
             v-if="bundledOllamaPath"
@@ -811,38 +836,117 @@ onUnmounted(() => {
             :disabled="wingetInstallBusy"
             @click="launchBundledOllamaInstaller"
           >
-            运行附带安装包
+            跑附带安装包
           </button>
         </div>
         <div v-if="config.ocliveLlmMode === 'remote' && envDiag" class="banner-hint-remote" role="note">
-          当前在「启动」页选择了<strong>云端 Remote LLM</strong>，运行时可不依赖本机 Ollama；若仍要从 zip 安装角色包并指定本机模型，可照常使用下方的拉取与列表。
+          你在「启动」里选了<strong>云端大脑</strong>，聊天可以不靠本机 Ollama；下面装 zip、选模型时若仍要用本机模型，下面的按钮照样有用。
         </div>
-        <div class="ollama-model-box">
-          <strong>Ollama 与模型</strong>
-          <ul>
+
+        <div class="assistant-actions">
+          <button type="button" class="btn primary" @click="() => runEnvironmentDiagnose()">重新检测一遍</button>
+          <button type="button" class="btn" @click="openLauncherConfigFolder">打开配置文件夹</button>
+          <button type="button" class="btn danger" @click="resetLauncherConfig">恢复默认配置</button>
+        </div>
+        <p v-if="envDiagErr" class="err">{{ envDiagErr }}</p>
+        <p class="hint">
+          点「重新检测」刷新表格。配置文件坏了可用「恢复默认」，旧文件会尽量改名成
+          <code>launcher-config.json.corrupt.bak</code> 留着。
+        </p>
+        <table v-if="envDiag" class="diag-table">
+          <tbody>
+            <tr>
+              <th>Node.js</th>
+              <td :class="{ ok: !!envDiag.nodeVersion, bad: !envDiag.nodeVersion }">
+                {{ envDiag.nodeVersion ?? '没装或没进 PATH（开发模式才需要）' }}
+              </td>
+            </tr>
+            <tr>
+              <th>npm</th>
+              <td :class="{ ok: !!envDiag.npmVersion, bad: !envDiag.npmVersion }">
+                {{ envDiag.npmVersion ?? '未检测到' }}
+              </td>
+            </tr>
+            <tr>
+              <th>Ollama 命令行</th>
+              <td :class="{ ok: !!envDiag.ollamaVersion, bad: !envDiag.ollamaVersion }">
+                {{ envDiag.ollamaVersion ?? '没找到命令（有时服务仍在跑，看下一行）' }}
+              </td>
+            </tr>
+            <tr>
+              <th>Ollama 服务</th>
+              <td :class="{ ok: envDiag.ollamaApiReachable, bad: !envDiag.ollamaApiReachable }">
+                {{
+                  envDiag.ollamaApiReachable
+                    ? '本机 11434 端口通着'
+                    : '连不上（先打开 Ollama 软件）'
+                }}
+              </td>
+            </tr>
+            <tr>
+              <th>编写器项目</th>
+              <td :class="{ ok: envDiag.editorProjectOk && envDiag.editorPackageJson, bad: !envDiag.editorProjectOk }">
+                <template v-if="config.editorMode === 'web'">用浏览器，不用本地文件夹</template>
+                <template v-else-if="!config.editorProjectRoot?.trim()">没填（开发模式才要填）</template>
+                <template v-else-if="!envDiag.editorProjectOk">路径不存在或不是文件夹</template>
+                <template v-else-if="!envDiag.editorPackageJson">缺少 package.json</template>
+                <template v-else>正常</template>
+              </td>
+            </tr>
+            <tr>
+              <th>oclive 项目</th>
+              <td :class="{ ok: envDiag.ocliveProjectOk && envDiag.oclivePackageJson, bad: !envDiag.ocliveProjectOk }">
+                <template v-if="!config.ocliveProjectRoot?.trim()">没填（开发模式才要填）</template>
+                <template v-else-if="!envDiag.ocliveProjectOk">路径不存在或不是文件夹</template>
+                <template v-else-if="!envDiag.oclivePackageJson">缺少 package.json</template>
+                <template v-else>正常</template>
+              </td>
+            </tr>
+            <tr>
+              <th>角色文件夹</th>
+              <td
+                :class="{
+                  ok: envDiag.ocliveRolesDirOk,
+                  bad: !!config.ocliveRolesDir?.trim() && !envDiag.ocliveRolesDirOk,
+                }"
+              >
+                <template v-if="!config.ocliveRolesDir?.trim()">没填也行；填了启动 oclive 会自动指过去</template>
+                <template v-else-if="!envDiag.ocliveRolesDirOk">路径不对</template>
+                <template v-else-if="!envDiag.ocliveRolesDirHasRoleHint">文件夹在，还没看到角色文件（可先启动再装）</template>
+                <template v-else>看起来已有角色数据</template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <details class="ollama-details">
+          <summary>展开：Ollama 是啥、模型怎么下、和「云端大脑」啥关系</summary>
+          <ul class="ollama-details-list">
             <li>
-              <strong>安装</strong>：从
-              <button type="button" class="linkish inline" @click="openRelease('https://ollama.com/download')">ollama.com/download</button>
-              获取安装包；安装后尽量让 Ollama 在后台运行（系统托盘）。              <strong>Windows</strong>：若已启用 <code>winget</code>，可用「一键安装（winget）」；若你与启动器<strong>一并附带</strong>了官方
-              <code>OllamaSetup.exe</code>（可放在仓库根目录，构建时会同步到 <code>src-tauri/bundled/ollama/</code>），打包后此处会出现「运行附带安装包」。二者均非静默，可能弹 UAC。
+              <strong>安装</strong>：到
+              <button type="button" class="linkish inline" @click="openRelease('https://ollama.com/download')">ollama.com</button>
+              下安装包，装完让它在后台跑。Windows 可用 winget 或启动器打包里附带的安装包（可能弹 UAC）。
             </li>
             <li>
-              <strong>拉取模型</strong>：安装不等于已有模型。可在「启动」页用 <strong>从 zip 安装角色包</strong> 对话框里的「拉取所选模型」，或在终端执行
-              <code>ollama pull &lt;模型名&gt;</code>；库见
-              <button type="button" class="linkish inline" @click="openRelease('https://ollama.com/library')">Ollama 模型库</button>。生态默认推荐 <code>qwen2.5:7b</code>。
+              <strong>模型</strong>：装完软件还要单独拉模型。可在「启动」里装 zip 角色包时顺手拉，或终端执行
+              <code>ollama pull 模型名</code>；列表见
+              <button type="button" class="linkish inline" @click="openRelease('https://ollama.com/library')">模型库</button>。常用推荐
+              <code>qwen2.5:7b</code>。
             </li>
             <li>
-              <strong>云端模型</strong>：<code>ollama pull</code> 只拉取<strong>本机 Ollama</strong> 可用的模型，不能用来「下载」OpenAI / 国内云 API。要在 oclive 里用云端大脑，请在角色包
-              <code>settings.json</code> 将 <code>plugin_backends.llm</code> 设为 <code>remote</code>，并在运行 oclive 的环境中设置
-              <code>OCLIVE_REMOTE_LLM_URL</code>（及可选 Token），指向实现 JSON-RPC 的侧车或网关；详见 oclivenewnew 仓库
-              <code>creator-docs/plugin-and-architecture/REMOTE_PLUGIN_PROTOCOL.md</code>。
-            </li>
-            <li>
-              <strong>网络</strong>：下载安装包或 pull 若较慢，可稍后重试；具体以 Ollama 官方文档为准。
+              <strong>云端</strong>：<code>ollama pull</code> 只管本机；要用 OpenAI 类云端 API，要在角色设置里改「大脑」为 remote，并配环境变量，详见主仓库文档
+              <code>REMOTE_PLUGIN_PROTOCOL.md</code>。
             </li>
           </ul>
+        </details>
+
+        <div class="ollama-model-box">
+          <div class="section-title-row section-title-row--inline">
+            <strong>Ollama 常用按钮</strong>
+            <HelpHint text="一键安装、拉模型、看本机已有模型；进度在「日志」里筛 ollama 看。" />
+          </div>
           <div class="env-ollama-quick">
-            <span class="env-ollama-quick-label">快捷操作</span>
+            <span class="env-ollama-quick-label">点一下</span>
             <div class="env-ollama-quick-btns">
               <button
                 v-if="bundledOllamaPath"
@@ -883,86 +987,11 @@ onUnmounted(() => {
               本机已有：<code>{{ ollamaLocalModels.join('、') }}</code>
             </p>
             <p v-else class="hint tiny env-ollama-model-chips">
-              点击「刷新本机已拉取列表」查看 <code>ollama list</code> / API 结果（需 Ollama 已启动）。
+              要先开 Ollama 再点「刷新」，才会列出模型。
             </p>
           </div>
         </div>
-        <p class="hint">
-          启动前可点「重新检测」：确认本机已安装 <strong>Node.js</strong> / <strong>npm</strong>（开发模式必需），以及
-          <strong>Ollama</strong> 是否在运行（oclive 对话默认走本地模型）。若配置文件损坏，可用「一键重置启动器配置」恢复默认，原文件会尽量备份为
-          <code>launcher-config.json.corrupt.bak</code>。
-        </p>
-        <div class="assistant-actions">
-          <button type="button" class="btn primary" @click="() => runEnvironmentDiagnose()">重新检测</button>
-          <button type="button" class="btn" @click="openLauncherConfigFolder">打开配置目录</button>
-          <button type="button" class="btn danger" @click="resetLauncherConfig">一键重置启动器配置</button>
-        </div>
-        <p v-if="envDiagErr" class="err">{{ envDiagErr }}</p>
-        <table v-if="envDiag" class="diag-table">
-          <tbody>
-            <tr>
-              <th>Node</th>
-              <td :class="{ ok: !!envDiag.nodeVersion, bad: !envDiag.nodeVersion }">
-                {{ envDiag.nodeVersion ?? '未检测到（请安装 Node.js LTS 并加入 PATH）' }}
-              </td>
-            </tr>
-            <tr>
-              <th>npm</th>
-              <td :class="{ ok: !!envDiag.npmVersion, bad: !envDiag.npmVersion }">
-                {{ envDiag.npmVersion ?? '未检测到' }}
-              </td>
-            </tr>
-            <tr>
-              <th>Ollama CLI</th>
-              <td :class="{ ok: !!envDiag.ollamaVersion, bad: !envDiag.ollamaVersion }">
-                {{ envDiag.ollamaVersion ?? '未在 PATH 中找到 ollama（可仍通过服务运行）' }}
-              </td>
-            </tr>
-            <tr>
-              <th>Ollama API</th>
-              <td :class="{ ok: envDiag.ollamaApiReachable, bad: !envDiag.ollamaApiReachable }">
-                {{
-                  envDiag.ollamaApiReachable
-                    ? '127.0.0.1:11434 可访问'
-                    : '不可访问（请启动 Ollama 服务）'
-                }}
-              </td>
-            </tr>
-            <tr>
-              <th>编写器目录</th>
-              <td :class="{ ok: envDiag.editorProjectOk && envDiag.editorPackageJson, bad: !envDiag.editorProjectOk }">
-                <template v-if="config.editorMode === 'web'">网页模式：使用浏览器打开，无需本地仓库</template>
-                <template v-else-if="!config.editorProjectRoot?.trim()">未填写（开发模式需填写项目根）</template>
-                <template v-else-if="!envDiag.editorProjectOk">路径不存在或不是文件夹</template>
-                <template v-else-if="!envDiag.editorPackageJson">缺少 package.json</template>
-                <template v-else>正常</template>
-              </td>
-            </tr>
-            <tr>
-              <th>oclive 目录</th>
-              <td :class="{ ok: envDiag.ocliveProjectOk && envDiag.oclivePackageJson, bad: !envDiag.ocliveProjectOk }">
-                <template v-if="!config.ocliveProjectRoot?.trim()">未填写（开发模式需填写项目根）</template>
-                <template v-else-if="!envDiag.ocliveProjectOk">路径不存在或不是文件夹</template>
-                <template v-else-if="!envDiag.oclivePackageJson">缺少 package.json</template>
-                <template v-else>正常</template>
-              </td>
-            </tr>
-            <tr>
-              <th>角色包根目录</th>
-              <td
-                :class="{
-                  ok: envDiag.ocliveRolesDirOk,
-                  bad: !!config.ocliveRolesDir?.trim() && !envDiag.ocliveRolesDirOk,
-                }"
-              >
-                <template v-if="!config.ocliveRolesDir?.trim()">未填写（可选；填写后启动 oclive 会注入 OCLIVE_ROLES_DIR）</template>
-                <template v-else-if="!envDiag.ocliveRolesDirOk">路径不存在或不是文件夹</template>
-                <template v-else-if="!envDiag.ocliveRolesDirHasRoleHint">目录有效，尚未检测到子目录下的 manifest.json（可稍后放入角色包）</template>
-                <template v-else>正常（已检测到角色包目录）</template>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+
         <p class="hint assistant-links">
           <button type="button" class="linkish" @click="openRelease('https://nodejs.org/')">Node.js 下载</button>
           ·
@@ -972,29 +1001,116 @@ onUnmounted(() => {
         </p>
       </section>
 
-    <div v-else-if="activeNav === 'apps'" class="view-panel grid grid-2">
-      <section class="card">
-        <h2>角色包编写器</h2>
+    <div v-else-if="activeNav === 'apps'" class="view-panel grid grid-2 apps-grid">
+      <section class="card card--primary-app">
+        <div class="section-title-row">
+          <h2>oclive（聊天窗口）</h2>
+          <HelpHint
+            text="这就是真正「聊天」的软件。上面填角色文件夹、选大脑，下面告诉启动器 exe 或源码在哪。"
+          />
+        </div>
+        <div class="roles-block">
+          <div class="label-with-hint">
+            <label>角色都存在哪个文件夹</label>
+            <HelpHint
+              text="填「很多个角色文件夹」的共同上一级。里面通常是「角色名/」下面再有一堆配置。不填也能启动，但不会自动帮你指到磁盘上的角色。"
+            />
+          </div>
+          <p class="hint tiny">就是一堆 <code>角色id</code> 子文件夹的<strong>父目录</strong>；启动器会告诉 oclive 去那儿找。</p>
+          <div class="row">
+            <input v-model="config.ocliveRolesDir" placeholder="例如 D:\oclivenewnew\roles" />
+            <button type="button" class="btn" @click="pickRolesRoot">浏览…</button>
+            <button type="button" class="btn" @click="fillSuggestedRolesDir">从仓库猜一个</button>
+          </div>
+          <p class="hint tiny">编写器导出的 zip / ocpak 可以装到这个目录里。</p>
+          <div class="row role-install-row">
+            <button type="button" class="btn primary" @click="beginInstallRolePack">用 zip 装一个角色包…</button>
+          </div>
+        </div>
+        <div class="llm-backend-block">
+          <div class="label-with-hint">
+            <label>对话用谁想（大脑）</label>
+            <HelpHint
+              text="本机：走 Ollama 里的模型。云端：填你自己搭好的接口地址（JSON-RPC），适合不用本机显卡的情况。"
+            />
+          </div>
+          <p class="hint tiny">选「本机」就是 Ollama；选「云端」要在下面填网址，细节见主仓库说明文档。</p>
+          <div class="mode">
+            <label><input v-model="config.ocliveLlmMode" type="radio" value="ollama" /> 本机 Ollama</label>
+            <label><input v-model="config.ocliveLlmMode" type="radio" value="remote" /> 云端接口</label>
+          </div>
+          <template v-if="config.ocliveLlmMode === 'remote'">
+            <label>云端地址（JSON-RPC）</label>
+            <input
+              v-model="config.ocliveRemoteLlmUrl"
+              placeholder="例如 http://127.0.0.1:8765/rpc"
+              autocomplete="off"
+            />
+            <label>令牌 Token（没有就空着）</label>
+            <input
+              v-model="config.ocliveRemoteLlmToken"
+              type="password"
+              autocomplete="off"
+              placeholder="可选"
+            />
+            <label>超时多少毫秒（可选）</label>
+            <input
+              v-model="config.ocliveRemoteLlmTimeoutMs"
+              placeholder="例如 120000"
+              inputmode="numeric"
+            />
+          </template>
+        </div>
         <div class="mode mode--wrap">
-          <label><input v-model="config.editorMode" type="radio" value="web" /> 网页（推荐）</label>
-          <label><input v-model="config.editorMode" type="radio" value="dev" /> 开发（npm）</label>
-          <label><input v-model="config.editorMode" type="radio" value="exe" /> 已安装 exe</label>
+          <label><input v-model="config.ocliveMode" type="radio" value="dev" /> 本地跑源码（npm）</label>
+          <label><input v-model="config.ocliveMode" type="radio" value="exe" /> 用安装好的 exe</label>
+        </div>
+        <template v-if="config.ocliveMode === 'dev'">
+          <label>oclive 源码文件夹</label>
+          <div class="row">
+            <input v-model="config.ocliveProjectRoot" placeholder="例如 D:\oclivenewnew" />
+            <button type="button" class="btn" @click="pickOcliveRoot">浏览…</button>
+          </div>
+          <label>npm 里要跑哪条命令</label>
+          <input v-model="config.ocliveNpmScript" placeholder="一般写 tauri:dev" />
+        </template>
+        <template v-else>
+          <label>oclive 的 exe 在哪</label>
+          <div class="row">
+            <input v-model="config.ocliveExe" placeholder="选你的 oclive.exe" />
+            <button type="button" class="btn" @click="pickOcliveExe">浏览…</button>
+          </div>
+        </template>
+        <div class="actions">
+          <button type="button" class="btn primary" @click="spawnOclive">启动 oclive</button>
+          <button type="button" class="btn danger" @click="stopOclive">关掉</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-title-row">
+          <h2>角色包编写器</h2>
+          <HelpHint
+            text="用来写人设、世界观、导出 zip。一般用浏览器打开官网就够；只有要改源码时才选下面两种。"
+          />
+        </div>
+        <div class="mode mode--wrap">
+          <label><input v-model="config.editorMode" type="radio" value="web" /> 用网页（省事）</label>
+          <label><input v-model="config.editorMode" type="radio" value="dev" /> 本地源码（npm）</label>
+          <label><input v-model="config.editorMode" type="radio" value="exe" /> 安装版 exe</label>
         </div>
         <template v-if="config.editorMode === 'web'">
-          <label>编写器网页地址</label>
+          <label>网页地址（可空）</label>
           <input
             v-model="config.editorWebUrl"
             type="url"
             autocomplete="off"
-            :placeholder="`留空则打开：${editorPagesUrlPreview}`"
+            :placeholder="`不填就用：${editorPagesUrlPreview}`"
           />
-          <p class="hint tiny">
-            默认使用「版本与更新」里填写的 GitHub Pages（<code>https://&lt;owner&gt;.github.io/&lt;repo&gt;/</code>）。可填本地
-            <code>http://127.0.0.1:…</code> 做调试。
-          </p>
+          <p class="hint tiny">空着时按「版本」页的仓库名打开线上 Pages；本地调试可填 <code>http://127.0.0.1:…</code>。</p>
         </template>
         <template v-else-if="config.editorMode === 'dev'">
-          <label>项目根目录</label>
+          <label>编写器源码根目录</label>
           <div class="row">
             <input v-model="config.editorProjectRoot" placeholder="例如 D:\oclive-pack-editor" />
             <button type="button" class="btn" @click="pickEditorRoot">浏览…</button>
@@ -1003,7 +1119,7 @@ onUnmounted(() => {
           <input v-model="config.editorNpmScript" placeholder="tauri:dev" />
         </template>
         <template v-else>
-          <label>可执行文件</label>
+          <label>编写器 exe</label>
           <div class="row">
             <input v-model="config.editorExe" placeholder=".exe 路径" />
             <button type="button" class="btn" @click="pickEditorExe">浏览…</button>
@@ -1011,100 +1127,30 @@ onUnmounted(() => {
         </template>
         <div class="actions">
           <button type="button" class="btn primary" @click="spawnEditor">
-            {{ config.editorMode === 'web' ? '在浏览器中打开' : '启动' }}
+            {{ config.editorMode === 'web' ? '在浏览器打开' : '启动编写器' }}
           </button>
-          <button type="button" class="btn danger" @click="stopEditor">停止</button>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>oclive 运行时</h2>
-        <div class="roles-block">
-          <label>角色包根目录（<code>OCLIVE_ROLES_DIR</code>）</label>
-          <p class="hint tiny">
-            指向「各 <code>角色id/</code> 的父目录」，内含 <code>mumu/manifest.json</code> 这类结构。启动 oclive 时由启动器注入环境变量；留空则不在此注入。
-          </p>
-          <div class="row">
-            <input v-model="config.ocliveRolesDir" placeholder="例如 D:\oclivenewnew\roles" />
-            <button type="button" class="btn" @click="pickRolesRoot">浏览…</button>
-            <button type="button" class="btn" @click="fillSuggestedRolesDir">从 oclive 仓库填入</button>
-          </div>
-          <p class="hint tiny">从编写器导出的 <code>.zip</code> / <code>.ocpak</code> 可安装到上述目录。</p>
-          <div class="row role-install-row">
-            <button type="button" class="btn primary" @click="beginInstallRolePack">从 zip 安装角色包…</button>
-          </div>
-        </div>
-        <div class="llm-backend-block">
-          <label>对话推理（大脑）</label>
-          <p class="hint tiny">
-            注入 <code>OCLIVE_LLM_BACKEND</code>，运行时覆盖包内 <code>plugin_backends.llm</code>。本机用 Ollama（<code>model</code>）；云端填侧车 URL，协议见主仓库
-            <code>REMOTE_PLUGIN_PROTOCOL.md</code>。
-          </p>
-          <div class="mode">
-            <label><input v-model="config.ocliveLlmMode" type="radio" value="ollama" /> 本机 Ollama</label>
-            <label><input v-model="config.ocliveLlmMode" type="radio" value="remote" /> 云端 Remote LLM</label>
-          </div>
-          <template v-if="config.ocliveLlmMode === 'remote'">
-            <label>Remote LLM URL（JSON-RPC）</label>
-            <input
-              v-model="config.ocliveRemoteLlmUrl"
-              placeholder="例如 http://127.0.0.1:8765/rpc"
-              autocomplete="off"
-            />
-            <label>Bearer Token（可选）</label>
-            <input
-              v-model="config.ocliveRemoteLlmToken"
-              type="password"
-              autocomplete="off"
-              placeholder="留空则不设置 OCLIVE_REMOTE_LLM_TOKEN"
-            />
-            <label>超时（毫秒，可选）</label>
-            <input
-              v-model="config.ocliveRemoteLlmTimeoutMs"
-              placeholder="如 120000；留空则用运行时默认"
-              inputmode="numeric"
-            />
-          </template>
-        </div>
-        <div class="mode">
-          <label><input v-model="config.ocliveMode" type="radio" value="dev" /> 开发（npm）</label>
-          <label><input v-model="config.ocliveMode" type="radio" value="exe" /> 已安装 exe</label>
-        </div>
-        <template v-if="config.ocliveMode === 'dev'">
-          <label>项目根目录</label>
-          <div class="row">
-            <input v-model="config.ocliveProjectRoot" placeholder="例如 D:\oclivenewnew" />
-            <button type="button" class="btn" @click="pickOcliveRoot">浏览…</button>
-          </div>
-          <label>npm 脚本名</label>
-          <input v-model="config.ocliveNpmScript" placeholder="tauri:dev" />
-        </template>
-        <template v-else>
-          <label>可执行文件</label>
-          <div class="row">
-            <input v-model="config.ocliveExe" placeholder=".exe 路径" />
-            <button type="button" class="btn" @click="pickOcliveExe">浏览…</button>
-          </div>
-        </template>
-        <div class="actions">
-          <button type="button" class="btn primary" @click="spawnOclive">启动</button>
-          <button type="button" class="btn danger" @click="stopOclive">停止</button>
+          <button type="button" class="btn danger" @click="stopEditor">关掉</button>
         </div>
       </section>
     </div>
 
     <section v-else-if="activeNav === 'logs'" class="view-panel card log-card">
       <div class="log-head">
-        <h2>运行日志（子进程 stdout / stderr）</h2>
+        <div class="section-title-row log-title-row">
+          <h2>后台日志</h2>
+          <HelpHint
+            text="编写器、oclive、装模型时打印的黑字都在这。卡住了先筛到对应一项看最后几行报错。"
+          />
+        </div>
         <div class="log-tools">
-          <label>筛选</label>
+          <label>只看</label>
           <select v-model="logFilter">
             <option value="all">全部</option>
-            <option value="editor">仅编写器</option>
-            <option value="oclive">仅 oclive</option>
-            <option value="ollama">仅 ollama pull</option>
-            <option value="winget">仅 winget 安装</option>
-            <option value="bundled-ollama">仅附带安装包</option>
+            <option value="editor">编写器</option>
+            <option value="oclive">oclive</option>
+            <option value="ollama">拉模型</option>
+            <option value="winget">winget 安装</option>
+            <option value="bundled-ollama">附带安装包</option>
           </select>
           <button type="button" class="btn" @click="clearLogs">清空</button>
         </div>
@@ -1377,6 +1423,79 @@ onUnmounted(() => {
   margin: 0 0 0.5rem;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.section-title-row h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.section-title-row--inline {
+  margin-bottom: 0.35rem;
+}
+
+.label-with-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.15rem;
+}
+
+.label-with-hint label {
+  margin: 0;
+  display: inline;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--fluent-text-secondary);
+}
+
+.ollama-details {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px dashed var(--fluent-border-stroke);
+  border-radius: var(--fluent-radius);
+  background: var(--fluent-bg-subtle);
+}
+
+.ollama-details summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fluent-text-secondary);
+  user-select: none;
+}
+
+.ollama-details-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.8125rem;
+  color: var(--fluent-text-secondary);
+  line-height: 1.45;
+}
+
+.card--primary-app {
+  border-color: color-mix(in srgb, var(--fluent-accent) 25%, var(--fluent-border-stroke));
+}
+
+.log-title-row {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.log-title-row h2 {
+  margin: 0;
 }
 
 .hint {
