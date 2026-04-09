@@ -171,6 +171,10 @@ const filteredLogs = computed(() => {
   return logs.value.filter((l) => l.app === f)
 })
 
+const logPanelText = computed(() =>
+  filteredLogs.value.map((l) => `[${l.app}][${l.stream}] ${l.line}`).join('\n'),
+)
+
 function pushLog(app: string, stream: string, line: string) {
   logs.value.push({ app, stream, line, ts: Date.now() })
   if (logs.value.length > MAX_LOG) {
@@ -1105,7 +1109,7 @@ onUnmounted(() => {
           <button type="button" class="btn" @click="clearLogs">清空</button>
         </div>
       </div>
-      <pre class="log">{{ filteredLogs.map((l) => `[${l.app}][${l.stream}] ${l.line}`).join('\n') }}</pre>
+      <pre class="log">{{ logPanelText }}</pre>
     </section>
       </div>
 
