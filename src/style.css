@@ -1,5 +1,7 @@
 /**
  * 与 oclive-pack-editor 对齐：Fluent Design（参考工作区 ok-ww / qfluentwidgets 的层次与强调色）。
+ *
+ * 根字号随窗口缩放（Tauri 可调窗口）：子元素用 rem 会跟著变；仍用 px 的局部样式不变。
  */
 :root {
   --fluent-bg-page: #f0f4f9;
@@ -36,7 +38,7 @@
   --fluent-mono: 'Cascadia Code', 'Consolas', ui-monospace, monospace;
 
   font-family: var(--fluent-font);
-  font-size: 14px;
+  font-size: clamp(12px, calc(9px + 0.7vmin), 20px);
   line-height: 1.5;
   color: var(--fluent-text-primary);
   background: var(--fluent-bg-page);
