@@ -1,6 +1,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 
-/** 与 oclive-pack-editor `usePackShellPreferences` 中档位一致，便于习惯对齐 */
+/** 档位须与 oclive-pack-editor `usePackShellPreferences.ts` 的 UI_SCALE_STEPS 保持一致 */
 const SCALE_STORAGE_KEY = 'oclive-launcher-ui-scale'
 const UI_SCALE_STEPS = [0.8, 0.88, 0.96, 1, 1.08, 1.16, 1.24] as const
 
