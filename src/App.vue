@@ -6,12 +6,14 @@ import HelpHint from './components/HelpHint.vue'
 
 const VIEW_LABELS: Record<string, string> = {
   start: '新手入门',
-  announce: '公告通知',
   version: '版本与下载',
   apps: '启动软件',
   assistant: '环境检查',
   logs: '运行日志',
 }
+
+/** 发给别人用的包请保持 false；只有你本地打包时设为 true 才能在界面里改公告 */
+const announceEditEnabled = computed(() => import.meta.env.VITE_ANNOUNCE_EDITABLE === 'true')
 
 export interface LauncherConfig {
   editorProjectRoot: string
@@ -576,14 +578,46 @@ function clearLogs() {
 
 const navItems = [
   { id: 'start', label: '新手', icon: '🚀' },
-  { id: 'announce', label: '公告', icon: '📢' },
-  { id: 'version', label: '版本', icon: '📦' },
   { id: 'apps', label: '启动', icon: '▶' },
   { id: 'assistant', label: '环境', icon: '🩺' },
   { id: 'logs', label: '日志', icon: '📋' },
 ] as const
 
-const activeNav = ref<string>('announce')
+const activeNav = ref<string>('start')
+
+const versionMenuOpen = ref(false)
+const versionDropdownRef = ref<HTMLElement | null>(null)
+
+function closeVersionMenu() {
+  versionMenuOpen.value = false
+}
+
+function onVersionDocClick(e: MouseEvent) {
+  if (!versionMenuOpen.value) return
+  const el = versionDropdownRef.value
+  if (el && !el.contains(e.target as Node)) versionMenuOpen.value = false
+}
+
+function goVersionPage() {
+  activeNav.value = 'version'
+  closeVersionMenu()
+}
+
+async function goVersionPageAndCheck() {
+  activeNav.value = 'version'
+  closeVersionMenu()
+  await checkReleases()
+}
+
+function openEditorReleasesFromMenu() {
+  void openRelease(releasesEditorUrl.value)
+  closeVersionMenu()
+}
+
+function openOcliveReleasesFromMenu() {
+  void openRelease(releasesOcliveUrl.value)
+  closeVersionMenu()
+}
 
 function focusLogs(filter: 'ollama' | 'winget' | 'bundled-ollama') {
   activeNav.value = 'logs'
@@ -597,13 +631,15 @@ function setView(id: string) {
 }
 
 function onDocKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && installModalOpen.value) {
-    cancelInstallRolePackModal()
+  if (e.key === 'Escape') {
+    versionMenuOpen.value = false
+    if (installModalOpen.value) cancelInstallRolePackModal()
   }
 }
 
 onMounted(async () => {
   document.addEventListener('keydown', onDocKeydown)
+  document.addEventListener('click', onVersionDocClick)
   await loadAll()
   await maybeFirstLaunchAutoDiagnose()
   unlistenLog = await listen<{ app: string; stream: string; line: string }>(
@@ -621,6 +657,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', onDocKeydown)
+  document.removeEventListener('click', onVersionDocClick)
   unlistenLog?.()
   unlistenExit?.()
 })
@@ -650,10 +687,7 @@ onUnmounted(() => {
             <h1>{{ currentViewLabel }}</h1>
             <p class="sub">
               <template v-if="activeNav === 'start'">
-                不知道怎么下手就看这一页：按顺序做一遍，就能从「写设定」到「开聊」。
-              </template>
-              <template v-else-if="activeNav === 'announce'">
-                写一段给创作者看的说明，只保存在你电脑上；和别的页面互不打扰。
+                不知道怎么下手就看这一页：按顺序做一遍，就能从「写设定」到「开聊」。维护者通知在最上面。
               </template>
               <template v-else-if="activeNav === 'version'">
                 对照网上发布的版本号，顺便一键打开下载页。
@@ -667,7 +701,35 @@ onUnmounted(() => {
               <template v-else>软件在后台打印的信息都在这里，出问题先来这里瞄一眼。</template>
             </p>
           </div>
-          <button type="button" class="btn primary" @click="saveConfig">保存配置</button>
+          <div class="titlebar-actions">
+            <div ref="versionDropdownRef" class="version-dropdown">
+              <button
+                type="button"
+                class="btn version-dropdown-trigger"
+                :aria-expanded="versionMenuOpen"
+                aria-haspopup="true"
+                @click.stop="versionMenuOpen = !versionMenuOpen"
+              >
+                版本 ▾
+              </button>
+              <div v-if="versionMenuOpen" class="version-dropdown-panel" role="menu">
+                <button type="button" class="dropdown-item" role="menuitem" @click="goVersionPage">
+                  打开「版本与下载」页
+                </button>
+                <button type="button" class="dropdown-item" role="menuitem" @click="goVersionPageAndCheck">
+                  检查更新（进入版本页并拉取）
+                </button>
+                <hr class="dropdown-sep" />
+                <button type="button" class="dropdown-item" role="menuitem" @click="openEditorReleasesFromMenu">
+                  编写器 · GitHub 下载页
+                </button>
+                <button type="button" class="dropdown-item" role="menuitem" @click="openOcliveReleasesFromMenu">
+                  oclive · GitHub 下载页
+                </button>
+              </div>
+            </div>
+            <button type="button" class="btn primary" @click="saveConfig">保存配置</button>
+          </div>
         </div>
       </header>
 
@@ -687,7 +749,33 @@ onUnmounted(() => {
       <p v-if="statusMsg" class="status">{{ statusMsg }}</p>
 
       <div class="scroll-main">
-        <section v-if="activeNav === 'start'" class="view-panel card guide-card">
+        <div v-if="activeNav === 'start'" class="view-panel view-start-stack">
+        <section class="card announce-board">
+          <div class="section-title-row">
+            <h2>维护者通知</h2>
+            <HelpHint
+              v-if="announceEditEnabled"
+              text="当前为可编辑构建：改完点保存。发给用户的安装包请不要打开「可编辑公告」，这样别人只能看、不能改。"
+            />
+            <HelpHint
+              v-else
+              text="这段文字由维护者写好随启动器分发，用来发群公告、更新说明等。普通用户不能在这里改；要编辑请用带 VITE_ANNOUNCE_EDITABLE=true 的维护者构建，或直接改配置目录里的 announcements.md。"
+            />
+          </div>
+          <p v-if="!announceEditEnabled" class="hint tiny announce-board-hint">
+            只读。需要改公告请使用维护者专用构建，或编辑应用配置目录中的 <code>announcements.md</code>。
+          </p>
+          <template v-if="announceEditEnabled">
+            <textarea v-model="announcements" class="announce" rows="8" spellcheck="false" />
+            <button type="button" class="btn" @click="saveAnnouncements">保存通知</button>
+          </template>
+          <template v-else>
+            <p v-if="!announcements.trim()" class="hint announce-empty">暂无通知。</p>
+            <pre v-else class="announce-readonly">{{ announcements }}</pre>
+          </template>
+        </section>
+
+        <section class="card guide-card">
         <div class="section-title-row">
           <h2>新手照着做就行</h2>
           <HelpHint
@@ -695,7 +783,7 @@ onUnmounted(() => {
           />
         </div>
         <p class="hint guide-lead">
-          你可以只聊天、只做角色，或两个都来——下面是一条<strong>最省事</strong>的路线：<strong>写设定 → 放进角色文件夹 → 开 oclive 聊天</strong>。细节以后在「版本」「环境」里慢慢补。
+          你可以只聊天、只做角色，或两个都来——下面是一条<strong>最省事</strong>的路线：<strong>写设定 → 放进角色文件夹 → 开 oclive 聊天</strong>。看版本号、下安装包用右上角「版本」菜单。
         </p>
         <p class="hint">
           三个东西分工不同：<strong>本程序</strong>负责一键打开；<strong>编写器</strong>用来写内容；<strong>oclive</strong>是聊天窗口。角色文件都放在磁盘上的
@@ -706,7 +794,7 @@ onUnmounted(() => {
             <strong>先把环境备好</strong>：开发用要装 <strong>Node</strong>；电脑本地跑对话大脑要装 <strong>Ollama</strong>。第一次打开启动器会自动帮你测一遍，也可随时去「环境」点「重新检测」。
           </li>
           <li>
-            <strong>下载或克隆软件</strong>：「版本」页能跳到 GitHub 下载安装包；会开发的同学也可以把仓库克隆到本地。
+            <strong>下载或克隆软件</strong>：点右上角「版本」里的链接能跳到 GitHub 下载；会开发的同学也可以把仓库克隆到本地。
           </li>
           <li>
             <strong>在「启动」里填路径</strong>：告诉启动器编写器和 oclive 在哪（网页 / 文件夹 / exe 三选一）；再填「角色包根目录」让聊天软件找得到角色（可点「从 oclive 仓库填入」偷懒）。
@@ -730,22 +818,13 @@ onUnmounted(() => {
           <button type="button" class="linkish" @click="openRelease(releasesOcliveUrl)">运行时 Releases</button>
         </p>
       </section>
-
-        <section v-else-if="activeNav === 'announce'" class="view-panel card">
-        <div class="section-title-row">
-          <h2>给创作者看的公告</h2>
-          <HelpHint text="写在这儿的字只存在你电脑里，用来提醒自己或同伴；不会自动发到网上。" />
         </div>
-        <p class="hint">改完记得点「保存公告」。和版本号、启动按钮、日志不是一回事。</p>
-        <textarea v-model="announcements" class="announce" rows="14" spellcheck="false" />
-        <button type="button" class="btn" @click="saveAnnouncements">保存公告</button>
-      </section>
 
       <section v-else-if="activeNav === 'version'" class="view-panel card">
         <div class="section-title-row">
           <h2>看版本、去下载</h2>
           <HelpHint
-            text="左边是网上最新发布号，右边是你本机仓库里 package.json 的版本。用自己 fork 的话把 owner/repo 改成你的。"
+            text="表格里能对照：网上最新 Tag 和本机 package.json。用自己 fork 的话把 owner/repo 改成你的。"
           />
         </div>
         <p class="hint">
@@ -1306,6 +1385,90 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 1rem;
   padding-bottom: 1rem;
+}
+
+.titlebar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.version-dropdown {
+  position: relative;
+}
+
+.version-dropdown-trigger {
+  min-width: 5.5rem;
+}
+
+.version-dropdown-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 80;
+  min-width: 15rem;
+  padding: 0.35rem 0;
+  background: var(--fluent-bg-card);
+  border: 1px solid var(--fluent-border-stroke);
+  border-radius: var(--fluent-radius-lg);
+  box-shadow: var(--fluent-shadow-card);
+}
+
+.dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.85rem;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--fluent-text-primary);
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background: var(--fluent-bg-subtle);
+}
+
+.dropdown-sep {
+  margin: 0.25rem 0;
+  border: none;
+  border-top: 1px solid var(--fluent-border-stroke);
+}
+
+.view-start-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.announce-board h2 {
+  margin: 0;
+}
+
+.announce-board-hint {
+  margin-top: 0;
+}
+
+.announce-readonly {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  font-family: var(--fluent-font);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--fluent-bg-subtle);
+  border: 1px solid var(--fluent-border-stroke);
+  border-radius: var(--fluent-radius);
+  color: var(--fluent-text-primary);
+}
+
+.announce-empty {
+  margin: 0;
+  font-style: italic;
 }
 
 .titlebar h1 {
