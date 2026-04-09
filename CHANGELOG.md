@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **界面**：日间 **暖色主题**（象牙/卡其）；顶栏 **界面缩放**（A− / 百分比 / A+，与编写器同档位）；**版本与下载** 等页 **HelpHint** 大白话说明；顶栏 **问号** 解释字号、主题与「保存配置」；若干 **z-index** 修正避免问号被遮挡。
+- **文档**：README 功能表补充外观、侧车用户向文档链接（`SIDECAR_LLM_USER_GUIDE.md`）。
 - **随包寄语**：包内 `creator_message.txt` 首行由启动器读取；UI 与 Rust 侧统一非空首行解析；README **随包寄语与职责边界** 与公告文件（`announcements.md` / `creator-announcements.md`）区分说明；CONTRIBUTING **跨仓约定**。
 
 ## 0.1.1

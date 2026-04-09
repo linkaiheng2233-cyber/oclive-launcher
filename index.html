@@ -9,6 +9,10 @@
           var dark =
             t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
           document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+          var sc = localStorage.getItem('oclive-launcher-ui-scale')
+          if (sc != null && sc !== '' && !isNaN(parseFloat(sc))) {
+            document.documentElement.style.setProperty('--launcher-ui-scale', String(parseFloat(sc)))
+          }
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'light')
         }

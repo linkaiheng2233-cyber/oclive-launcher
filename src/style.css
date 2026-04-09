@@ -1,52 +1,62 @@
 /**
  * Fluent Design + 手动浅色 / 深色（html[data-theme]）。字号随窗口缩放。
+ * 日间：象牙 / 卡其暖灰、低饱和，减轻冷白与亮蓝带来的刺眼感。
  */
 html {
-  --fluent-bg-page: #f0f4f9;
-  --fluent-bg-card: #ffffff;
-  --fluent-bg-subtle: #f5f5f5;
-  --fluent-bg-input: #ffffff;
-  --fluent-border-stroke: #edebe9;
-  --fluent-border-control: #d2d0ce;
-  --fluent-border-focus: #0078d4;
-  --fluent-shadow-card: 0 0.3px 0.9px rgba(0, 0, 0, 0.08), 0 1.6px 3.6px rgba(0, 0, 0, 0.12);
-  --fluent-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --fluent-bg-page: #e7e2d9;
+  --fluent-bg-card: #f6f3ec;
+  --fluent-bg-subtle: #ede8df;
+  --fluent-bg-input: #faf8f3;
+  --fluent-border-stroke: #d6cfc3;
+  --fluent-border-control: #c4bcb0;
+  --fluent-border-focus: #6f8f86;
+  --fluent-shadow-card:
+    0 1px 2px rgba(42, 34, 26, 0.05),
+    0 6px 18px rgba(42, 34, 26, 0.06);
+  --fluent-shadow-soft: 0 1px 3px rgba(42, 34, 26, 0.05);
 
-  --fluent-text-primary: #323130;
-  --fluent-text-secondary: #605e5c;
-  --fluent-text-disabled: #a19f9d;
+  --fluent-text-primary: #2c2722;
+  --fluent-text-secondary: #5a5349;
+  --fluent-text-disabled: #948c82;
 
-  --fluent-accent: #0078d4;
-  --fluent-accent-hover: #106ebe;
-  --fluent-accent-subtle: rgba(0, 120, 212, 0.12);
+  /* 主色：灰绿 / 鼠尾草，替代高饱和系统蓝 */
+  --fluent-accent: #4a6b62;
+  --fluent-accent-hover: #3d5a52;
+  --fluent-accent-subtle: rgba(74, 107, 98, 0.14);
 
-  --fluent-danger-bg: #fde7e9;
-  --fluent-danger-border: #d13438;
-  --fluent-danger-text: #a4262c;
+  --fluent-danger-bg: #f2e8e6;
+  --fluent-danger-border: #b56f6f;
+  --fluent-danger-text: #8a3a3a;
 
-  --fluent-success-text: #107c10;
+  --fluent-success-text: #3f6b4d;
 
-  --fluent-warning-bg: #fff4ce;
-  --fluent-warning-border: #e0c76a;
-  --fluent-warning-text: #8a4b00;
+  --fluent-warning-bg: #f0e8d6;
+  --fluent-warning-border: #c4ae7a;
+  --fluent-warning-text: #66552e;
 
-  --fluent-radius: 4px;
-  --fluent-radius-lg: 8px;
-  --fluent-radius-xl: 12px;
+  --fluent-radius: 6px;
+  --fluent-radius-lg: 10px;
+  --fluent-radius-xl: 14px;
   --fluent-font: 'Segoe UI', 'Segoe UI Variable', 'Microsoft YaHei', system-ui, sans-serif;
   --fluent-mono: 'Cascadia Code', 'Consolas', ui-monospace, monospace;
 
-  /* 侧栏高亮：与主 accent 区分 */
-  --rail-accent-oclive: #5b4dbe;
-  --rail-accent-oclive-bg: rgba(91, 77, 190, 0.14);
-  --rail-accent-editor: #0d7a6a;
-  --rail-accent-editor-bg: rgba(13, 122, 106, 0.14);
+  /* 侧栏：略降饱和，与暖底协调 */
+  --rail-accent-oclive: #6a5f8a;
+  --rail-accent-oclive-bg: rgba(106, 95, 138, 0.13);
+  --rail-accent-editor: #4a7c70;
+  --rail-accent-editor-bg: rgba(74, 124, 112, 0.12);
+
+  /* 与编写器相同的根字号公式与档位变量（由 JS 写入） */
+  --launcher-ui-scale: 1;
 
   font-family: var(--fluent-font);
-  font-size: clamp(12px, calc(9px + 0.7vmin), 20px);
+  font-size: calc(clamp(12px, calc(8px + 0.85vmin), 22px) * var(--launcher-ui-scale, 1));
   line-height: 1.5;
   color: var(--fluent-text-primary);
-  background: var(--fluent-bg-page);
+  background-color: var(--fluent-bg-page);
+  background-image:
+    radial-gradient(ellipse 90% 55% at 100% -5%, color-mix(in srgb, #b89a6e 16%, transparent), transparent 52%),
+    radial-gradient(ellipse 75% 48% at 0% 100%, color-mix(in srgb, #7d9c91 12%, transparent), transparent 50%);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   scroll-behavior: smooth;
@@ -85,6 +95,9 @@ html[data-theme='dark'] {
   --rail-accent-oclive-bg: rgba(180, 167, 255, 0.18);
   --rail-accent-editor: #5ee0c5;
   --rail-accent-editor-bg: rgba(94, 224, 197, 0.14);
+
+  background-image: none;
+  background-color: var(--fluent-bg-page);
 }
 
 *,
@@ -93,14 +106,21 @@ html[data-theme='dark'] {
   box-sizing: border-box;
 }
 
+html,
 body {
+  height: 100%;
   margin: 0;
-  min-height: 100vh;
-  background: var(--fluent-bg-page);
+  overflow: hidden;
+}
+
+/* 渐变画在 html 上；body 透明以免盖住 */
+body {
+  background: transparent;
 }
 
 #app {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
 }
 
 h1,

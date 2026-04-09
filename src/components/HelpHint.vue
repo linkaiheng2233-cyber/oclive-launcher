@@ -5,7 +5,7 @@ const props = defineProps<{
   /** 点击问号后显示的说明；可用连续两个换行分段，或传 `paragraphs` */
   text?: string
   /** 多段说明（优先展示）；每段单独成段，便于阅读 */
-  paragraphs?: string[]
+  paragraphs?: readonly string[]
 }>()
 
 const segments = computed(() => {
@@ -49,7 +49,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <span ref="root" class="help-hint">
+  <span ref="root" class="help-hint" :class="{ 'help-hint--open': open }">
     <button
       type="button"
       class="help-btn"
@@ -72,6 +72,13 @@ onUnmounted(() => {
   vertical-align: middle;
   margin-left: 0.3rem;
   position: relative;
+  /* 高于下方公告卡片与普通下拉，低于全屏安装弹层 (z-index: 1000) */
+  z-index: 900;
+}
+
+/* 展开时整颗（按钮 + 气泡）抬到其它未展开问号之上，避免长文案被旁边圆圈挡住 */
+.help-hint.help-hint--open {
+  z-index: 980;
 }
 
 .help-btn {
@@ -115,7 +122,7 @@ onUnmounted(() => {
   position: absolute;
   left: 0;
   top: calc(100% + 8px);
-  z-index: 200;
+  z-index: 901;
   /* 偏宽的横向阅读区 */
   min-width: min(20rem, calc(100vw - 2rem));
   max-width: min(34rem, calc(100vw - 1.5rem));
@@ -133,6 +140,8 @@ onUnmounted(() => {
     var(--fluent-shadow-card),
     0 14px 36px color-mix(in srgb, var(--fluent-text-primary) 10%, transparent);
   animation: help-pop-in 0.18s ease-out;
+  max-height: min(70vh, 26rem);
+  overflow-y: auto;
 }
 
 @keyframes help-pop-in {

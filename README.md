@@ -81,7 +81,8 @@
 | **第一次使用** | 上手步骤与三仓库关系；鼓励玩家与创作者自由尝试 |
 | **首次启动** | 自动跑一次环境检测一次（本地记忆），状态栏提示欢迎语 |
 | **环境与排障** | **一键检测** Node / npm / Ollama（CLI 与 `127.0.0.1:11434` API）、编写器/oclive 项目目录、`OCLIVE_ROLES_DIR` 是否有效；Ollama 未就绪时 **横幅提示**；**Windows**：若本机有 **winget**，可 **一键安装官方 Ollama**；若打包时包含 **`bundled/ollama/OllamaSetup.exe`**，可 **运行附带安装包**（均非静默，可能弹 UAC）；**打开配置目录**；**一键重置**损坏的 `launcher-config.json`（原文件尽量备份为 `launcher-config.json.corrupt.bak`）；附 Node / Ollama 官方下载链接 |
-| **推理后端（大脑）** | 可选 **本机 Ollama** 或 **云端 Remote LLM**：注入 **`OCLIVE_LLM_BACKEND`**（`ollama` / `remote`），运行时覆盖角色包内 `plugin_backends.llm`；云端需填 JSON-RPC 端点 URL，可选 Token 与超时（见 oclivenewnew **`REMOTE_PLUGIN_PROTOCOL.md`**） |
+| **外观与字号** | 日间 **暖色（象牙/卡其）** 界面；顶栏 **A− / 百分比 / A+** 调节缩放（与 **oclive-pack-editor** 档位一致，本地保存）；顶栏 **问号** 说明字号、主题与「保存配置」分工（配置落盘见下「配置存储」） |
+| **推理后端（大脑）** | 可选 **本机 Ollama** 或 **云端 Remote LLM**：注入 **`OCLIVE_LLM_BACKEND`**（`ollama` / `remote`），运行时覆盖角色包内 `plugin_backends.llm`；云端需填 **JSON-RPC** 侧车 URL（非厂商原始 REST），可选 Token 与超时。协议见 oclivenewnew **`REMOTE_PLUGIN_PROTOCOL.md`**；**在本机用自带 API Key 接闭源模型**的用户向步骤见 **`SIDECAR_LLM_USER_GUIDE.md`**（[主仓库链接](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/getting-started/SIDECAR_LLM_USER_GUIDE.md)） |
 | **角色包 zip 安装** | 「从 zip 安装角色包」：解压编写器导出的包到 `roles/` 下，对话框选择 **Ollama 模型**（默认 `qwen2.5:7b`）、本机已拉取列表、或 **手动输入**；可选是否 **覆盖** `settings.json` 里已有 `model`；可一键 **`ollama pull`**（日志筛选「ollama」） |
 | **运行日志** | 子进程在 Windows 上使用 **无控制台窗口** 启动，输出汇总到下方日志区，可按应用筛选（含 **ollama pull**、**winget**、**附带安装包**） |
 

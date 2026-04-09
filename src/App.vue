@@ -6,8 +6,26 @@ import HelpHint from './components/HelpHint.vue'
 import CreatorAnnouncementsSection from './announcements/CreatorAnnouncementsSection.vue'
 import DeveloperAnnouncementsSection from './announcements/DeveloperAnnouncementsSection.vue'
 import { useDeveloperAnnouncements } from './announcements/useDeveloperAnnouncements'
+import { useLauncherUiScale } from './composables/useLauncherUiScale'
 import { useRolePackEcho } from './composables/useRolePackEcho'
 import type { RolePackEchoConfig } from './lib/rolePackCreatorMessage'
+import { normalizeExePathPaste, parseGithubRepoFromUrl } from './lib/launcherPaste'
+import {
+  LAUNCHER_HINT_ASSISTANT,
+  LAUNCHER_HINT_EDITOR_GH_DL,
+  LAUNCHER_HINT_EXE_PATH_PASTE,
+  LAUNCHER_HINT_GH_URL_PASTE,
+  LAUNCHER_HINT_LOGS,
+  LAUNCHER_HINT_OCLIVE_GH_DL,
+  LAUNCHER_HINT_START_GUIDE,
+  LAUNCHER_HINT_TITLEBAR_TOOLS,
+  LAUNCHER_HINT_VERSION_ACTIONS,
+  LAUNCHER_HINT_VERSION_LOCAL_VS_REMOTE,
+  LAUNCHER_HINT_VERSION_PAGE,
+  LAUNCHER_HINT_VERSION_QUICK_LINKS,
+  LAUNCHER_HINT_VERSION_REPO_EDITOR,
+  LAUNCHER_HINT_VERSION_REPO_OCLIVE,
+} from './lib/launcherHints'
 
 const VIEW_LABELS: Record<string, string> = {
   start: '新手入门',
@@ -174,6 +192,10 @@ const ocliveGhAssetUrl = ref('')
 const editorGhAssetUrl = ref('')
 const ocliveGhBusy = ref(false)
 const editorGhBusy = ref(false)
+
+/** 粘贴完整 GitHub 仓库网址后，点「填入」拆成 owner / repo */
+const editorGhUrlPaste = ref('')
+const ocliveGhUrlPaste = ref('')
 
 /** 编写器网页地址留空时的默认 GitHub Pages（与配置里 owner/repo 一致） */
 const editorPagesUrlPreview = computed(() => {
@@ -342,6 +364,78 @@ async function pickEditorExe() {
 async function pickOcliveExe() {
   const p = await invoke<string | undefined>('pick_exe')
   if (p) config.value.ocliveExe = p
+}
+
+async function applyEditorRepoFromPastedUrl() {
+  const r = parseGithubRepoFromUrl(editorGhUrlPaste.value)
+  if (!r) {
+    statusMsg.value =
+      '认不出 GitHub 仓库地址。请粘贴浏览器地址栏里的链接，例如 https://github.com/用户名/仓库名'
+    return
+  }
+  config.value.githubEditorOwner = r.owner
+  config.value.githubEditorRepo = r.repo
+  statusMsg.value = `已填入编写器仓库：${r.owner}/${r.repo}（可到「编写器」页点「列出附件」下载）`
+  await saveConfig()
+}
+
+async function applyOcliveRepoFromPastedUrl() {
+  const r = parseGithubRepoFromUrl(ocliveGhUrlPaste.value)
+  if (!r) {
+    statusMsg.value =
+      '认不出 GitHub 仓库地址。请粘贴浏览器地址栏里的链接，例如 https://github.com/用户名/仓库名'
+    return
+  }
+  config.value.githubOcliveOwner = r.owner
+  config.value.githubOcliveRepo = r.repo
+  statusMsg.value = `已填入 oclive 仓库：${r.owner}/${r.repo}（可到「启动 oclive」页点「列出附件」下载）`
+  await saveConfig()
+}
+
+function onOcliveExeInputPaste(e: ClipboardEvent) {
+  const text = e.clipboardData?.getData('text') ?? ''
+  const p = normalizeExePathPaste(text)
+  if (!p) return
+  e.preventDefault()
+  config.value.ocliveExe = p
+  config.value.ocliveMode = 'exe'
+  statusMsg.value = '已从粘贴识别 oclive.exe，已切换到「已安装的 exe」'
+  void saveConfig()
+}
+
+function onEditorExeInputPaste(e: ClipboardEvent) {
+  const text = e.clipboardData?.getData('text') ?? ''
+  const p = normalizeExePathPaste(text)
+  if (!p) return
+  e.preventDefault()
+  config.value.editorExe = p
+  config.value.editorMode = 'exe'
+  statusMsg.value = '已从粘贴识别编写器 exe，已切换到「本地 exe」'
+  void saveConfig()
+}
+
+async function applyOcliveExeFromField() {
+  const p = normalizeExePathPaste(config.value.ocliveExe)
+  if (!p) {
+    statusMsg.value = '请填写以 .exe 结尾的完整路径（可含引号）'
+    return
+  }
+  config.value.ocliveExe = p
+  config.value.ocliveMode = 'exe'
+  statusMsg.value = '已整理 oclive.exe 路径并切换到 exe 模式'
+  await saveConfig()
+}
+
+async function applyEditorExeFromField() {
+  const p = normalizeExePathPaste(config.value.editorExe)
+  if (!p) {
+    statusMsg.value = '请填写以 .exe 结尾的完整路径（可含引号）'
+    return
+  }
+  config.value.editorExe = p
+  config.value.editorMode = 'exe'
+  statusMsg.value = '已整理编写器 exe 路径并切换到本地 exe 模式'
+  await saveConfig()
 }
 
 function formatGhBytes(n: number): string {
@@ -742,11 +836,36 @@ async function openVersionsListingInBrowser() {
   try {
     await invoke('open_url', { url: versionsListingPageUrl.value })
     statusMsg.value = '已在浏览器打开版本列表页'
-    closeVersionMenu()
   } catch (e) {
     statusMsg.value = String(e)
-    closeVersionMenu()
   }
+}
+
+/** 将上方两个「粘贴网址」框解析进配置（若有有效内容）并拉取 Release 对照版本 */
+async function syncGithubUrlsAndCheckUpdates() {
+  let changed = false
+  const ed = parseGithubRepoFromUrl(editorGhUrlPaste.value)
+  if (ed) {
+    config.value.githubEditorOwner = ed.owner
+    config.value.githubEditorRepo = ed.repo
+    changed = true
+  }
+  const oc = parseGithubRepoFromUrl(ocliveGhUrlPaste.value)
+  if (oc) {
+    config.value.githubOcliveOwner = oc.owner
+    config.value.githubOcliveRepo = oc.repo
+    changed = true
+  }
+  if (changed) {
+    try {
+      await invoke('save_config', { config: config.value })
+      statusMsg.value = '已从粘贴框同步 GitHub 仓库'
+    } catch (e) {
+      statusMsg.value = String(e)
+      return
+    }
+  }
+  await checkReleases()
 }
 
 async function resetLauncherConfig() {
@@ -787,6 +906,7 @@ const navItems: {
   accent?: 'oclive' | 'editor'
 }[] = [
   { id: 'start', label: '新手', icon: '🚀' },
+  { id: 'version', label: '版本', icon: '📦' },
   { id: 'launch-oclive', label: 'oclive', icon: '💬', accent: 'oclive' },
   { id: 'launch-editor', label: '编写器', icon: '✏️', accent: 'editor' },
   { id: 'assistant', label: '环境', icon: '🩺' },
@@ -832,41 +952,9 @@ const themeCycleLabel = computed(() => {
   }
 })
 
+const { bumpScale, scaleLabel } = useLauncherUiScale()
+
 const activeNav = ref<string>('start')
-
-const versionMenuOpen = ref(false)
-const versionDropdownRef = ref<HTMLElement | null>(null)
-
-function closeVersionMenu() {
-  versionMenuOpen.value = false
-}
-
-function onVersionDocClick(e: MouseEvent) {
-  if (!versionMenuOpen.value) return
-  const el = versionDropdownRef.value
-  if (el && !el.contains(e.target as Node)) versionMenuOpen.value = false
-}
-
-function goVersionPage() {
-  activeNav.value = 'version'
-  closeVersionMenu()
-}
-
-async function goVersionPageAndCheck() {
-  activeNav.value = 'version'
-  closeVersionMenu()
-  await checkReleases()
-}
-
-function openEditorReleasesFromMenu() {
-  void openRelease(releasesEditorUrl.value)
-  closeVersionMenu()
-}
-
-function openOcliveReleasesFromMenu() {
-  void openRelease(releasesOcliveUrl.value)
-  closeVersionMenu()
-}
 
 type LogAppFilter =
   | 'all'
@@ -889,14 +977,12 @@ function setView(id: string) {
 
 function onDocKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
-    versionMenuOpen.value = false
     if (installModalOpen.value) cancelInstallRolePackModal()
   }
 }
 
 onMounted(async () => {
   document.addEventListener('keydown', onDocKeydown)
-  document.addEventListener('click', onVersionDocClick)
   try {
     const raw = localStorage.getItem(THEME_STORAGE_KEY)
     if (raw === 'light' || raw === 'dark' || raw === 'system') {
@@ -930,7 +1016,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', onDocKeydown)
-  document.removeEventListener('click', onVersionDocClick)
   themeMediaCleanup?.()
   unlistenLog?.()
   unlistenExit?.()
@@ -981,47 +1066,34 @@ onUnmounted(() => {
               <template v-else>软件在后台打印的信息都在这里，出问题先来这里瞄一眼。</template>
             </p>
           </div>
-          <div class="titlebar-actions">
-            <div ref="versionDropdownRef" class="version-dropdown">
-              <button
-                type="button"
-                class="btn version-dropdown-trigger"
-                :aria-expanded="versionMenuOpen"
-                aria-haspopup="true"
-                @click.stop="versionMenuOpen = !versionMenuOpen"
-              >
-                版本 ▾
+          <div class="titlebar-actions" role="toolbar" aria-label="外观与字号">
+            <div class="shell-scale" aria-label="界面大小">
+              <button type="button" class="shell-tool-btn" title="缩小" aria-label="缩小界面" @click="bumpScale(-1)">
+                A−
               </button>
-              <div v-if="versionMenuOpen" class="version-dropdown-panel" role="menu">
-                <button type="button" class="dropdown-item" role="menuitem" @click="openVersionsListingInBrowser">
-                  网站上看版本列表（GitHub Pages）
-                </button>
-                <hr class="dropdown-sep" />
-                <button type="button" class="dropdown-item" role="menuitem" @click="goVersionPage">
-                  打开本机「版本与下载」页
-                </button>
-                <button type="button" class="dropdown-item" role="menuitem" @click="goVersionPageAndCheck">
-                  检查更新（本机页并拉取）
-                </button>
-                <hr class="dropdown-sep" />
-                <button type="button" class="dropdown-item" role="menuitem" @click="openEditorReleasesFromMenu">
-                  编写器 · GitHub 下载页
-                </button>
-                <button type="button" class="dropdown-item" role="menuitem" @click="openOcliveReleasesFromMenu">
-                  oclive · GitHub 下载页
-                </button>
-              </div>
+              <span class="shell-scale-value" :title="'相对默认字号：' + scaleLabel">{{ scaleLabel }}</span>
+              <button type="button" class="shell-tool-btn" title="放大" aria-label="放大界面" @click="bumpScale(1)">
+                A+
+              </button>
             </div>
             <button
               type="button"
-              class="btn theme-toggle-btn"
+              class="shell-tool-btn shell-theme-btn"
               :title="`主题：${themeCycleLabel}（点击切换）`"
               @click="cycleTheme"
             >
               {{ themeCycleLabel === '跟随系统' ? '◐' : themeCycleLabel === '深色' ? '🌙' : '☀️' }}
               {{ themeCycleLabel }}
             </button>
-            <button type="button" class="btn primary" @click="saveConfig">保存配置</button>
+            <button
+              type="button"
+              class="btn primary"
+              title="把左侧各页的路径、GitHub 仓库、运行模式等写入本机配置文件；主题与界面字号保存在浏览器本地，会即时生效。"
+              @click="saveConfig"
+            >
+              保存配置
+            </button>
+            <HelpHint class="titlebar-tools-help" :paragraphs="LAUNCHER_HINT_TITLEBAR_TOOLS" />
           </div>
         </div>
       </header>
@@ -1046,12 +1118,10 @@ onUnmounted(() => {
         <section class="card guide-card">
         <div class="section-title-row">
           <h2>新手照着做就行</h2>
-          <HelpHint
-            text="启动器帮你把「写角色 → 放进文件夹 → 打开聊天软件」串起来。不必一次全懂，哪步卡了就去左边「环境」看检测结果。"
-          />
+          <HelpHint :paragraphs="LAUNCHER_HINT_START_GUIDE" />
         </div>
         <p class="hint guide-lead">
-          你可以只聊天、只做角色，或两个都来——下面是一条<strong>最省事</strong>的路线：<strong>写设定 → 放进角色文件夹 → 开 oclive 聊天</strong>。看版本号、下安装包用右上角「版本」菜单。
+          你可以只聊天、只做角色，或两个都来——下面是一条<strong>最省事</strong>的路线：<strong>写设定 → 放进角色文件夹 → 开 oclive 聊天</strong>。看版本号、对 GitHub 发版请点左侧「版本」。
         </p>
         <p class="hint">
           三个东西分工不同：<strong>本程序</strong>负责一键打开；<strong>编写器</strong>用来写内容；<strong>oclive</strong>是聊天窗口。角色文件都放在磁盘上的
@@ -1062,8 +1132,7 @@ onUnmounted(() => {
             <strong>先把环境备好</strong>：开发用要装 <strong>Node</strong>；电脑本地跑对话大脑要装 <strong>Ollama</strong>。第一次打开启动器会自动帮你测一遍，也可随时去「环境」点「重新检测」。
           </li>
           <li>
-            <strong>下载或克隆软件</strong>：打开 OCLive 市场网站的<strong>版本下载</strong>页可一次看到各软件发布列表；也可点启动器右上角「版本」里的链接进
-            GitHub。会开发的同学也可以把仓库克隆到本地。
+            <strong>下载或克隆软件</strong>：打开 OCLive 市场网站的<strong>版本下载</strong>页可一次看到各软件发布列表；也可点左侧「版本」进本页，用快捷按钮或粘贴 GitHub 网址检查更新。会开发的同学也可以把仓库克隆到本地。
           </li>
           <li>
             <strong>在左侧「oclive」「编写器」里填路径</strong>：告诉启动器两个软件在哪（网页 / 文件夹 / exe）；在 oclive 页填「角色包根目录」让聊天软件找得到角色（可点「从仓库猜」偷懒）。
@@ -1108,32 +1177,60 @@ onUnmounted(() => {
       />
         </div>
 
-      <section v-else-if="activeNav === 'version'" class="view-panel card">
+      <section v-else-if="activeNav === 'version'" class="view-panel card ver-page">
         <div class="section-title-row">
           <h2>看版本、去下载</h2>
-          <HelpHint
-            text="表格里能对照：网上最新 Tag 和本机 package.json。用自己 fork 的话把 owner/repo 改成你的。"
-          />
+          <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_PAGE" />
         </div>
-        <p class="hint">
-          默认已经填了官方仓库名；点下面按钮会直接跳到 GitHub 发布页下载安装包。
+        <p class="hint ver-page-lead">
+          大白话：这一页就是帮你对照「电脑上装的版本」和「GitHub 上最新发的一不一样」，再顺手打开市场汇总页或某个仓库的下载页。具体名词点各小节旁的<strong>小问号</strong>看详细说明。
         </p>
         <div class="ver-quick-dl">
-          <span class="ver-quick-label">一键打开下载页</span>
+          <div class="label-with-hint ver-quick-head">
+            <span class="ver-subtle-label">快捷入口</span>
+            <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_QUICK_LINKS" />
+          </div>
           <div class="ver-quick-btns">
+            <button type="button" class="btn" @click="openVersionsListingInBrowser">市场站 · 各软件版本列表</button>
             <button type="button" class="btn" @click="openRelease(releasesEditorUrl)">编写器 Releases</button>
             <button type="button" class="btn" @click="openRelease(releasesOcliveUrl)">oclive 运行时 Releases</button>
           </div>
         </div>
-        <p class="hint">填好仓库名后点「检查更新」，会把网上最新 Tag 和本机版本并排给你看（仓库要能在 GitHub 上访问）。</p>
+        <p class="hint">
+          下面分两块：<strong>编写器</strong>一块、<strong>oclive</strong>一块。每块都可以先粘贴整段仓库网址再点「填入」，或手改 owner / repo。最底下两个按钮用来联网查 GitHub；区别见「检查更新」旁的问号。
+        </p>
+
+        <div class="gh-paste-block">
+          <div class="label-with-hint">
+            <label>粘贴编写器仓库网址（可选）</label>
+            <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
+          </div>
+          <div class="row">
+            <input
+              v-model="editorGhUrlPaste"
+              class="paste-url-input"
+              placeholder="例如 https://github.com/你的用户名/oclive-pack-editor"
+              autocomplete="off"
+              @keydown.enter.prevent="applyEditorRepoFromPastedUrl"
+            />
+            <button type="button" class="btn" @click="applyEditorRepoFromPastedUrl">填入 owner / repo</button>
+          </div>
+        </div>
 
         <div class="gh-row">
-          <label>编写器在哪个仓库</label>
+          <div class="label-with-hint gh-row__label">
+            <label>编写器在哪个仓库</label>
+            <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_REPO_EDITOR" />
+          </div>
           <div class="gh-inputs">
             <input v-model="config.githubEditorOwner" placeholder="owner" />
             <span>/</span>
             <input v-model="config.githubEditorRepo" placeholder="repo" />
           </div>
+        </div>
+        <div class="label-with-hint ver-compare-hint">
+          <span class="ver-subtle-label">本机版本 vs 网上最新</span>
+          <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_LOCAL_VS_REMOTE" />
         </div>
         <div class="ver-line">
           <span>本机版本</span>
@@ -1149,13 +1246,37 @@ onUnmounted(() => {
 
         <hr class="sep" />
 
+        <div class="gh-paste-block">
+          <div class="label-with-hint">
+            <label>粘贴 oclive 仓库网址（可选）</label>
+            <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
+          </div>
+          <div class="row">
+            <input
+              v-model="ocliveGhUrlPaste"
+              class="paste-url-input"
+              placeholder="例如 https://github.com/你的用户名/oclivenewnew"
+              autocomplete="off"
+              @keydown.enter.prevent="applyOcliveRepoFromPastedUrl"
+            />
+            <button type="button" class="btn" @click="applyOcliveRepoFromPastedUrl">填入 owner / repo</button>
+          </div>
+        </div>
+
         <div class="gh-row">
-          <label>oclive 聊天软件在哪个仓库</label>
+          <div class="label-with-hint gh-row__label">
+            <label>oclive 聊天软件在哪个仓库</label>
+            <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_REPO_OCLIVE" />
+          </div>
           <div class="gh-inputs">
             <input v-model="config.githubOcliveOwner" placeholder="owner" />
             <span>/</span>
             <input v-model="config.githubOcliveRepo" placeholder="repo" />
           </div>
+        </div>
+        <div class="label-with-hint ver-compare-hint">
+          <span class="ver-subtle-label">本机版本 vs 网上最新</span>
+          <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_LOCAL_VS_REMOTE" />
         </div>
         <div class="ver-line">
           <span>本机版本</span>
@@ -1170,15 +1291,24 @@ onUnmounted(() => {
         </div>
 
         <p v-if="checkErr" class="err">{{ checkErr }}</p>
-        <button type="button" class="btn primary" @click="checkReleases">检查更新</button>
+        <div class="ver-actions-wrap">
+          <div class="label-with-hint ver-actions-hint">
+            <span class="ver-subtle-label">检查更新</span>
+            <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_ACTIONS" />
+          </div>
+          <div class="ver-actions-row">
+            <button type="button" class="btn primary" @click="syncGithubUrlsAndCheckUpdates">
+              同步粘贴的 GitHub 网址并检查更新
+            </button>
+            <button type="button" class="btn" @click="checkReleases">仅检查更新（当前 owner/repo）</button>
+          </div>
+        </div>
       </section>
 
     <section v-else-if="activeNav === 'assistant'" class="view-panel card">
         <div class="section-title-row">
           <h2>本机环境一眼看完</h2>
-          <HelpHint
-            text="下面表格逐项打勾：绿的算过关，红的就是还要装软件或改路径。看不懂的名词可以点「展开」看白话说明。"
-          />
+          <HelpHint :paragraphs="LAUNCHER_HINT_ASSISTANT" />
         </div>
         <div v-if="envDiag && nodeNeedsAttention" class="banner-warn banner-node" role="status">
           <strong>没检测到 Node / npm</strong>：只有当你要用「开发模式」跑源码时才必须装；若只用安装包 exe，可以忽略。
@@ -1443,8 +1573,28 @@ onUnmounted(() => {
 
           <div class="app-feature-block">
             <h3 class="app-feature-block__title">③ 获取 oclive 安装包</h3>
+            <p class="hint tiny">不知道 owner / repo 怎么填？去 GitHub 打开仓库首页，复制地址栏，在下面粘贴后点「填入」，与「版本与下载」页共用同一配置。</p>
+            <div class="gh-paste-block gh-paste-block--inline">
+              <div class="label-with-hint">
+                <span class="gh-paste-inline-label">粘贴仓库网址</span>
+                <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
+              </div>
+              <div class="row">
+                <input
+                  v-model="ocliveGhUrlPaste"
+                  class="paste-url-input"
+                  placeholder="https://github.com/…/…"
+                  autocomplete="off"
+                  @keydown.enter.prevent="applyOcliveRepoFromPastedUrl"
+                />
+                <button type="button" class="btn" @click="applyOcliveRepoFromPastedUrl">填入</button>
+              </div>
+            </div>
             <div class="gh-release-dl gh-release-dl--compact">
-              <label class="gh-release-dl__label">GitHub Release（「版本」里的 owner / repo）</label>
+              <div class="label-with-hint gh-release-dl__label-row">
+                <span class="gh-release-dl__label">GitHub Release（与「版本」里 oclive 仓库一致）</span>
+                <HelpHint :paragraphs="LAUNCHER_HINT_OCLIVE_GH_DL" />
+              </div>
               <div class="row gh-release-dl-row">
                 <button
                   type="button"
@@ -1495,10 +1645,20 @@ onUnmounted(() => {
               <input v-model="config.ocliveNpmScript" placeholder="一般写 tauri:dev" />
             </template>
             <template v-else>
-              <label>oclive.exe 路径</label>
+              <div class="label-with-hint">
+                <label>oclive.exe 路径</label>
+                <HelpHint :paragraphs="LAUNCHER_HINT_EXE_PATH_PASTE" />
+              </div>
+              <p class="hint tiny">可直接把资源管理器地址栏或快捷方式里的<strong>完整路径</strong>粘贴进框内；也可点「识别框内路径」。</p>
               <div class="row">
-                <input v-model="config.ocliveExe" placeholder="选你的 oclive.exe" />
+                <input
+                  v-model="config.ocliveExe"
+                  placeholder="例如 C:\...\oclive.exe（可粘贴）"
+                  autocomplete="off"
+                  @paste="onOcliveExeInputPaste"
+                />
                 <button type="button" class="btn" @click="pickOcliveExe">浏览…</button>
+                <button type="button" class="btn" @click="applyOcliveExeFromField">识别框内路径</button>
               </div>
             </template>
           </div>
@@ -1549,8 +1709,28 @@ onUnmounted(() => {
 
           <div class="app-feature-block">
             <h3 class="app-feature-block__title">① 获取编写器</h3>
+            <p class="hint tiny">复制 GitHub 上<strong>仓库首页</strong>的网址，在下面粘贴并点「填入」，即可同步 owner / repo（与「版本与下载」一致）。</p>
+            <div class="gh-paste-block gh-paste-block--inline">
+              <div class="label-with-hint">
+                <span class="gh-paste-inline-label">粘贴仓库网址</span>
+                <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
+              </div>
+              <div class="row">
+                <input
+                  v-model="editorGhUrlPaste"
+                  class="paste-url-input"
+                  placeholder="https://github.com/…/…"
+                  autocomplete="off"
+                  @keydown.enter.prevent="applyEditorRepoFromPastedUrl"
+                />
+                <button type="button" class="btn" @click="applyEditorRepoFromPastedUrl">填入</button>
+              </div>
+            </div>
             <div class="gh-release-dl gh-release-dl--compact">
-              <label class="gh-release-dl__label">GitHub Release（「版本」里的 owner / repo）</label>
+              <div class="label-with-hint gh-release-dl__label-row">
+                <span class="gh-release-dl__label">GitHub Release（与「版本」里编写器仓库一致）</span>
+                <HelpHint :paragraphs="LAUNCHER_HINT_EDITOR_GH_DL" />
+              </div>
               <div class="row gh-release-dl-row">
                 <button
                   type="button"
@@ -1610,10 +1790,20 @@ onUnmounted(() => {
               <input v-model="config.editorNpmScript" placeholder="tauri:dev" />
             </template>
             <template v-else>
-              <label>编写器 exe</label>
+              <div class="label-with-hint">
+                <label>编写器 exe</label>
+                <HelpHint :paragraphs="LAUNCHER_HINT_EXE_PATH_PASTE" />
+              </div>
+              <p class="hint tiny">粘贴以 .exe 结尾的完整路径后会自动切到「本地 exe」；也可点「识别框内路径」。</p>
               <div class="row">
-                <input v-model="config.editorExe" placeholder=".exe 路径" />
+                <input
+                  v-model="config.editorExe"
+                  placeholder="例如 …\oclive-pack-editor.exe（可粘贴）"
+                  autocomplete="off"
+                  @paste="onEditorExeInputPaste"
+                />
                 <button type="button" class="btn" @click="pickEditorExe">浏览…</button>
+                <button type="button" class="btn" @click="applyEditorExeFromField">识别框内路径</button>
               </div>
             </template>
           </div>
@@ -1655,9 +1845,7 @@ onUnmounted(() => {
       <div class="log-head">
         <div class="section-title-row log-title-row">
           <h2>后台日志</h2>
-          <HelpHint
-            text="从「oclive」「编写器」页启动的程序、以及拉模型、winget 等输出都会汇总在这里；不必另开终端。卡住了用下拉筛到对应项看最后几行。"
-          />
+          <HelpHint :paragraphs="LAUNCHER_HINT_LOGS" />
         </div>
         <div class="log-tools">
           <label>只看</label>
@@ -1744,12 +1932,16 @@ onUnmounted(() => {
 <style scoped>
 .fluent-root {
   display: flex;
-  min-height: 100vh;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
   font-family: var(--fluent-font);
   color: var(--fluent-text-primary);
+  /* 与全局 html 暖色底一致，避免主栏仍偏冷灰 */
   background:
-    radial-gradient(120% 72% at 100% -5%, rgba(158, 164, 173, 0.16), transparent 54%),
-    radial-gradient(95% 58% at -8% 105%, rgba(130, 137, 147, 0.14), transparent 50%),
+    radial-gradient(120% 72% at 100% -5%, color-mix(in srgb, #b89a6e 14%, transparent), transparent 54%),
+    radial-gradient(95% 58% at -8% 105%, color-mix(in srgb, #7d9c91 11%, transparent), transparent 50%),
     var(--fluent-bg-page);
   transition:
     background 0.22s ease,
@@ -1761,6 +1953,7 @@ onUnmounted(() => {
   width: calc(2.75rem + 1rem);
   box-sizing: border-box;
   flex-shrink: 0;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1773,6 +1966,11 @@ onUnmounted(() => {
   box-shadow:
     var(--fluent-shadow-soft),
     inset -1px 0 0 color-mix(in srgb, var(--fluent-border-stroke) 60%, transparent);
+  /* 仅主栏滚动时，侧栏随视口高度始终铺满 */
+  position: sticky;
+  top: 0;
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 .rail-btn {
@@ -1891,7 +2089,72 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.5rem 0.65rem;
+}
+
+.titlebar-tools-help {
+  margin-left: 0.15rem;
+  align-self: center;
+}
+
+/* 与编写器顶栏一致：A− / 百分比 / A+，再主题，再保存 */
+.shell-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: var(--fluent-radius-lg);
+  border: 1px solid var(--fluent-border-stroke);
+  background: color-mix(in srgb, var(--fluent-bg-card) 72%, transparent);
+  box-shadow: var(--fluent-shadow-soft);
+}
+
+.shell-scale-value {
+  min-width: 2.75rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--fluent-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-tool-btn {
+  padding: 0.35rem 0.55rem;
+  min-height: 30px;
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-stroke);
+  background: color-mix(in srgb, var(--fluent-bg-card) 82%, transparent);
+  color: var(--fluent-text-primary);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: var(--fluent-font);
+  box-shadow: var(--fluent-shadow-soft);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.shell-tool-btn:hover {
+  background: var(--fluent-bg-subtle);
+  border-color: var(--fluent-text-secondary);
+}
+
+.shell-tool-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--fluent-shadow-soft),
+    0 0 0 2px var(--fluent-bg-page),
+    0 0 0 4px var(--fluent-border-focus);
+}
+
+.shell-tool-btn:active {
+  transform: scale(0.98);
+}
+
+.shell-theme-btn {
+  padding: 0.35rem 0.65rem;
 }
 
 .theme-toggle-btn {
@@ -1900,73 +2163,6 @@ onUnmounted(() => {
   min-height: 32px;
   border-color: var(--fluent-border-stroke);
   background: var(--fluent-bg-subtle);
-}
-
-.version-dropdown {
-  position: relative;
-}
-
-.version-dropdown-trigger {
-  min-width: 5.5rem;
-}
-
-.version-dropdown-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 80;
-  min-width: 15rem;
-  padding: 0.4rem 0;
-  background: color-mix(in srgb, var(--fluent-bg-card) 86%, transparent);
-  backdrop-filter: blur(10px) saturate(108%);
-  -webkit-backdrop-filter: blur(10px) saturate(108%);
-  border: 1px solid var(--fluent-border-stroke);
-  border-radius: var(--fluent-radius-lg);
-  box-shadow:
-    var(--fluent-shadow-card),
-    0 12px 28px color-mix(in srgb, var(--fluent-text-primary) 8%, transparent);
-  animation: dropdown-in 0.16s ease-out;
-}
-
-@keyframes dropdown-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.dropdown-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 0.5rem 0.9rem;
-  border: none;
-  background: transparent;
-  font: inherit;
-  font-size: 0.8125rem;
-  color: var(--fluent-text-primary);
-  cursor: pointer;
-  transition: background 0.12s ease;
-}
-
-.dropdown-item:hover {
-  background: var(--fluent-bg-subtle);
-}
-
-.dropdown-item:focus-visible {
-  outline: none;
-  background: var(--fluent-accent-subtle);
-  box-shadow: inset 3px 0 0 var(--fluent-accent);
-}
-
-.dropdown-sep {
-  margin: 0.25rem 0;
-  border: none;
-  border-top: 1px solid var(--fluent-border-stroke);
 }
 
 .view-start-stack {
@@ -2035,9 +2231,26 @@ onUnmounted(() => {
 
 .scroll-main {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 1.15rem 1.35rem 2.25rem;
   scroll-padding-top: 0.75rem;
+}
+
+/* 新手页：自上而下提高叠放顺序，避免下方区块盖住上方问号 */
+.view-start-stack .guide-card {
+  position: relative;
+  z-index: 3;
+}
+
+.view-start-stack .announce-board--creator {
+  position: relative;
+  z-index: 2;
+}
+
+.view-start-stack .announce-board--developer {
+  position: relative;
+  z-index: 1;
 }
 
 .scroll-main > .view-panel {
@@ -2099,6 +2312,10 @@ onUnmounted(() => {
   }
   .rail {
     display: none;
+  }
+  .titlebar-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
   .mobile-nav {
     display: flex;
@@ -2364,6 +2581,42 @@ input[type='text']:focus {
   font-weight: 600;
   margin-bottom: 0.4rem;
   color: var(--fluent-text-primary);
+}
+
+.gh-release-dl__label-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.4rem;
+}
+
+.gh-release-dl__label-row .gh-release-dl__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fluent-text-primary);
+}
+
+/* 形成独立叠层，避免子元素 HelpHint(z-index:900) 与上方 .ver-quick-dl 等整块交错盖住 */
+.gh-paste-block {
+  margin: 0.5rem 0 0.75rem;
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+
+.gh-paste-block--inline {
+  margin: 0.35rem 0 0.55rem;
+}
+
+.gh-paste-inline-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fluent-text-secondary);
+}
+
+.paste-url-input {
+  font-size: 0.8125rem;
 }
 
 .gh-release-dl-row {
@@ -2704,7 +2957,7 @@ input[type='text']:focus {
 }
 
 .diag-table td.ok {
-  color: #107c10;
+  color: var(--fluent-success-text);
 }
 
 .diag-table td.bad {
@@ -2866,30 +3119,83 @@ input[type='text']:focus {
   text-wrap: pretty;
 }
 
+.ver-page .ver-page-lead {
+  line-height: 1.55;
+}
+
+/* 去掉毛玻璃；整块高于 .gh-paste-block(0)，避免下方粘贴区问号与快捷入口叠层打架 */
 .ver-quick-dl {
   margin: 0.85rem 0;
   padding: 0.85rem 1rem;
   border-radius: var(--fluent-radius-lg);
   border: 1px solid var(--fluent-border-stroke);
   border-left: 3px solid color-mix(in srgb, var(--fluent-text-secondary) 55%, var(--fluent-border-stroke));
-  background: color-mix(in srgb, var(--fluent-bg-subtle) 82%, transparent);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: color-mix(in srgb, var(--fluent-bg-subtle) 88%, transparent);
   box-shadow: var(--fluent-shadow-soft);
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
 }
-.ver-quick-label {
-  display: block;
+
+.ver-quick-head {
+  margin-top: 0;
+  margin-bottom: 0.35rem;
+  position: relative;
+  z-index: 2;
+}
+
+.ver-quick-head .ver-subtle-label {
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--fluent-text-secondary);
-  margin-bottom: 0.5rem;
 }
+
+.ver-subtle-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--fluent-text-secondary);
+}
+
+.gh-row__label {
+  margin-top: 0;
+  margin-bottom: 0.35rem;
+}
+
+.gh-row__label label {
+  font-size: 0.85rem;
+}
+
+.ver-compare-hint {
+  margin-top: 0.15rem;
+  margin-bottom: 0.35rem;
+}
+
+.ver-actions-wrap {
+  margin-top: 0.35rem;
+}
+
+.ver-actions-hint {
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
 .ver-quick-btns {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+  position: relative;
+  z-index: 0;
+}
+
+.ver-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
 }
 
 .ollama-model-box {
