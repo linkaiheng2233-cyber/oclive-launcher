@@ -74,16 +74,31 @@
 
 | 区域 | 说明 |
 |------|------|
-| **公告栏** | 本地 Markdown/纯文本，保存到应用配置目录下的 `announcements.md` |
+| **开发者公告** | 应用配置目录 **`announcements.md`**；可选 **`developerAnnouncementsUrl`**（`launcher-config.json`）+ 「拉取最新」从 http(s) 同步并缓存到本地（非自动推送，需手动拉取） |
+| **创作者公告** | 仅展示包内 **`creator_message.txt`**（可一句或多行）；作者在 **oclive-pack-editor** 导出，启动器**只读**；选角色见 **`launcherEchoRoleId`** |
 | **版本与更新** | 分别为编写器、oclive 填写 GitHub `owner/repo`，检查远端最新 Release；本地版本从各项目根目录 `package.json` 读取 |
-| **启动** | 每个应用可选 **开发模式**（在项目根执行 `npm run <脚本>`，默认 `tauri:dev`）或 **exe 模式**（直接运行已构建的 `.exe`） |
+| **启动** | 每个应用可选 **开发模式**（在项目根执行 `npm run <脚本>`，默认 `tauri:dev`）或 **exe 模式**（直接运行已构建的 `.exe`）；为 **oclive** 子进程注入 **`OCLIVE_ROLES_DIR`**（若已填写）；支持从 oclivenewnew 仓库根 **一键填入 `roles/`** |
 | **第一次使用** | 上手步骤与三仓库关系；鼓励玩家与创作者自由尝试 |
 | **首次启动** | 自动跑一次环境检测一次（本地记忆），状态栏提示欢迎语 |
 | **环境与排障** | **一键检测** Node / npm / Ollama（CLI 与 `127.0.0.1:11434` API）、编写器/oclive 项目目录、`OCLIVE_ROLES_DIR` 是否有效；Ollama 未就绪时 **横幅提示**；**Windows**：若本机有 **winget**，可 **一键安装官方 Ollama**；若打包时包含 **`bundled/ollama/OllamaSetup.exe`**，可 **运行附带安装包**（均非静默，可能弹 UAC）；**打开配置目录**；**一键重置**损坏的 `launcher-config.json`（原文件尽量备份为 `launcher-config.json.corrupt.bak`）；附 Node / Ollama 官方下载链接 |
-| **启动** | 为 **oclive** 子进程注入 **`OCLIVE_ROLES_DIR`**（若已填写）；支持从 oclivenewnew 仓库根 **一键填入 `roles/`** |
 | **推理后端（大脑）** | 可选 **本机 Ollama** 或 **云端 Remote LLM**：注入 **`OCLIVE_LLM_BACKEND`**（`ollama` / `remote`），运行时覆盖角色包内 `plugin_backends.llm`；云端需填 JSON-RPC 端点 URL，可选 Token 与超时（见 oclivenewnew **`REMOTE_PLUGIN_PROTOCOL.md`**） |
 | **角色包 zip 安装** | 「从 zip 安装角色包」：解压编写器导出的包到 `roles/` 下，对话框选择 **Ollama 模型**（默认 `qwen2.5:7b`）、本机已拉取列表、或 **手动输入**；可选是否 **覆盖** `settings.json` 里已有 `model`；可一键 **`ollama pull`**（日志筛选「ollama」） |
 | **运行日志** | 子进程在 Windows 上使用 **无控制台窗口** 启动，输出汇总到下方日志区，可按应用筛选（含 **ollama pull**、**winget**、**附带安装包**） |
+
+### 仓库内的远程开发者公告示例
+
+维护者可编辑本仓库 **[docs/launcher-developer-announcements.md](./docs/launcher-developer-announcements.md)**，发布后把 **Raw** 链接填进启动器（`main` 分支示例）：
+
+`https://raw.githubusercontent.com/linkaiheng2233-cyber/oclive-launcher/main/docs/launcher-developer-announcements.md`
+
+## 随包寄语与职责边界（创作者公告）
+
+| 角色 | 职责 |
+|------|------|
+| **文件名** | 固定为 **`creator_message.txt`**（与编写器 `src/lib/rolePackCreatorMessage.ts` 中常量、本仓库 `src/lib/rolePackCreatorMessage.ts` 的 **`ROLE_PACK_CREATOR_MESSAGE_FILENAME`**、`src-tauri/src/role_creator_message.rs` 保持同名；改名须**跨仓同步**） |
+| **编写器（oclive-pack-editor）** | 在导出 / 写入文件夹时生成或编辑；可选 **整包一句**（只导出首条非空行）或 **按行多条**（每行一条，每行最多 **160** 字，Unicode 标量，以代码为准） |
+| **启动器（本仓库）** | 从 **`roles/<角色id>/creator_message.txt`** 读取**全部非空行**并逐条展示；**不在此编辑**；**不**参与 oclive 对话逻辑 |
+| **oclivenewnew 运行时** | **不读取** `creator_message.txt`；对话与角色加载契约以该仓库 **`creator-docs/`** 为准 |
 
 ## 与「整合包 / 一键装模型」等方向的路线（长期）
 
