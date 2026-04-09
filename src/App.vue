@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import HelpHint from './components/HelpHint.vue'
@@ -7,7 +7,8 @@ import HelpHint from './components/HelpHint.vue'
 const VIEW_LABELS: Record<string, string> = {
   start: '新手入门',
   version: '版本与下载',
-  apps: '启动软件',
+  'launch-oclive': '启动 oclive',
+  'launch-editor': '角色包编写器',
   assistant: '环境检查',
   logs: '运行日志',
 }
@@ -47,6 +48,18 @@ interface ReleaseInfo {
   body?: string
 }
 
+interface GhReleaseAsset {
+  name: string
+  browserDownloadUrl: string
+  size: number
+}
+
+interface GhDownloadResult {
+  savedPath: string
+  resolvedExe: string | null
+  hint: string | null
+}
+
 interface LogLine {
   app: string
   stream: string
@@ -66,6 +79,17 @@ interface EnvDiagnostics {
   ocliveRolesDirOk: boolean
   ocliveRolesDirHasRoleHint: boolean
 }
+
+interface CreatorEchoMessage {
+  text: string
+  createdAt: number
+}
+
+interface CreatorEchoState {
+  hasSubmitted: boolean
+}
+
+const CREATOR_ECHO_MAX_CHARS = 160
 
 const config = ref<LauncherConfig>({
   editorProjectRoot: '',
@@ -88,7 +112,15 @@ const config = ref<LauncherConfig>({
   ocliveRemoteLlmTimeoutMs: '',
 })
 
-const announcements = ref('')
+const maintainerAnnouncements = ref('')
+const creatorAnnouncements = ref('')
+const creatorEchoMessages = ref<CreatorEchoMessage[]>([])
+const creatorEchoState = ref<CreatorEchoState>({ hasSubmitted: false })
+const creatorEchoModalOpen = ref(false)
+const creatorEchoDraft = ref('')
+const creatorEchoBusy = ref(false)
+/** 本会话内仅自动弹出一次撰写窗口（在首次 zip 安装角色包成功后） */
+const autoCreatorEchoPromptShown = ref(false)
 const statusMsg = ref('')
 const logFilter = ref<
   'all' | 'editor' | 'oclive' | 'ollama' | 'winget' | 'bundled-ollama'
@@ -120,6 +152,13 @@ const wingetAvailable = ref(false)
 const wingetInstallBusy = ref(false)
 /** 非空表示打包内含有 bundled/ollama/OllamaSetup.exe（仅 Windows） */
 const bundledOllamaPath = ref<string | null>(null)
+
+const ocliveGhAssets = ref<GhReleaseAsset[]>([])
+const editorGhAssets = ref<GhReleaseAsset[]>([])
+const ocliveGhAssetUrl = ref('')
+const editorGhAssetUrl = ref('')
+const ocliveGhBusy = ref(false)
+const editorGhBusy = ref(false)
 
 /** 编写器网页地址留空时的默认 GitHub Pages（与配置里 owner/repo 一致） */
 const editorPagesUrlPreview = computed(() => {
@@ -174,8 +213,42 @@ const filteredLogs = computed(() => {
   return logs.value.filter((l) => l.app === f)
 })
 
+const creatorEchoMessagesReversed = computed(() =>
+  [...creatorEchoMessages.value].sort((a, b) => b.createdAt - a.createdAt),
+)
+
+const creatorEchoCharCount = computed(() => [...creatorEchoDraft.value].length)
+
 const logPanelText = computed(() =>
   filteredLogs.value.map((l) => `[${l.app}][${l.stream}] ${l.line}`).join('\n'),
+)
+
+const APPS_LOG_PREVIEW_LINES = 24
+const appsLogPreviewEl = ref<HTMLElement | null>(null)
+
+const ocliveLogPreviewText = computed(() =>
+  logs.value
+    .filter((l) => l.app === 'oclive')
+    .slice(-APPS_LOG_PREVIEW_LINES)
+    .map((l) => `[${l.stream}] ${l.line}`)
+    .join('\n'),
+)
+
+const editorLogPreviewText = computed(() =>
+  logs.value
+    .filter((l) => l.app === 'editor')
+    .slice(-APPS_LOG_PREVIEW_LINES)
+    .map((l) => `[${l.stream}] ${l.line}`)
+    .join('\n'),
+)
+
+watch(
+  () => logs.value.length,
+  async () => {
+    await nextTick()
+    const el = appsLogPreviewEl.value
+    if (el) el.scrollTop = el.scrollHeight
+  },
 )
 
 function pushLog(app: string, stream: string, line: string) {
@@ -223,7 +296,9 @@ async function loadAll() {
   try {
     const c = await invoke<LauncherConfig>('load_config')
     config.value = { ...config.value, ...c }
-    announcements.value = await invoke<string>('load_announcements')
+    maintainerAnnouncements.value = await invoke<string>('load_maintainer_announcements')
+    creatorAnnouncements.value = await invoke<string>('load_creator_announcements')
+    await refreshCreatorEcho()
     await refreshLocalVersions()
     await refreshWingetAvailability()
     await refreshBundledOllamaInfo()
@@ -243,13 +318,78 @@ async function saveConfig() {
   }
 }
 
-async function saveAnnouncements() {
+async function saveMaintainerAnnouncements() {
   try {
-    await invoke('save_announcements', { text: announcements.value })
-    statusMsg.value = '公告已保存'
+    await invoke('save_maintainer_announcements', { text: maintainerAnnouncements.value })
+    statusMsg.value = '维护者公告已保存'
   } catch (e) {
     statusMsg.value = String(e)
   }
+}
+
+async function saveCreatorAnnouncements() {
+  try {
+    await invoke('save_creator_announcements', { text: creatorAnnouncements.value })
+    statusMsg.value = '创作者公告已保存'
+  } catch (e) {
+    statusMsg.value = String(e)
+  }
+}
+
+async function refreshCreatorEcho() {
+  try {
+    creatorEchoMessages.value = await invoke<CreatorEchoMessage[]>('load_creator_echo_messages')
+    creatorEchoState.value = await invoke<CreatorEchoState>('load_creator_echo_state')
+  } catch {
+    /* ignore */
+  }
+}
+
+function closeCreatorEchoModal() {
+  creatorEchoModalOpen.value = false
+  creatorEchoDraft.value = ''
+}
+
+async function openCreatorEchoModal() {
+  await refreshCreatorEcho()
+  if (creatorEchoState.value.hasSubmitted) {
+    statusMsg.value = '你已在当前电脑上留过一句创作寄语。'
+    return
+  }
+  creatorEchoDraft.value = ''
+  creatorEchoModalOpen.value = true
+}
+
+async function submitCreatorEcho() {
+  if (creatorEchoCharCount.value > CREATOR_ECHO_MAX_CHARS) {
+    statusMsg.value = `寄语请在 ${CREATOR_ECHO_MAX_CHARS} 字以内`
+    return
+  }
+  creatorEchoBusy.value = true
+  try {
+    await invoke('submit_creator_echo', { text: creatorEchoDraft.value })
+    statusMsg.value = '已保存。谢谢你的寄语。'
+    closeCreatorEchoModal()
+    await refreshCreatorEcho()
+  } catch (e) {
+    statusMsg.value = String(e)
+  } finally {
+    creatorEchoBusy.value = false
+  }
+}
+
+async function maybeAutoPromptCreatorEcho() {
+  if (autoCreatorEchoPromptShown.value) return
+  try {
+    const st = await invoke<CreatorEchoState>('load_creator_echo_state')
+    creatorEchoState.value = st
+    if (st.hasSubmitted) return
+  } catch {
+    return
+  }
+  autoCreatorEchoPromptShown.value = true
+  creatorEchoDraft.value = ''
+  creatorEchoModalOpen.value = true
 }
 
 async function pickEditorRoot() {
@@ -267,6 +407,110 @@ async function pickEditorExe() {
 async function pickOcliveExe() {
   const p = await invoke<string | undefined>('pick_exe')
   if (p) config.value.ocliveExe = p
+}
+
+function formatGhBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
+async function refreshOcliveGhAssets() {
+  ocliveGhBusy.value = true
+  try {
+    ocliveGhAssets.value = await invoke<GhReleaseAsset[]>('gh_latest_release_assets', {
+      owner: config.value.githubOcliveOwner.trim(),
+      repo: config.value.githubOcliveRepo.trim(),
+    })
+    ocliveGhAssetUrl.value = ''
+    statusMsg.value = ocliveGhAssets.value.length
+      ? `已列出 oclive 仓库 ${ocliveGhAssets.value.length} 个 Release 附件`
+      : '该 Release 下没有附件（或仓库尚无 Release）'
+  } catch (e) {
+    ocliveGhAssets.value = []
+    ocliveGhAssetUrl.value = ''
+    statusMsg.value = String(e)
+  } finally {
+    ocliveGhBusy.value = false
+  }
+}
+
+async function refreshEditorGhAssets() {
+  editorGhBusy.value = true
+  try {
+    editorGhAssets.value = await invoke<GhReleaseAsset[]>('gh_latest_release_assets', {
+      owner: config.value.githubEditorOwner.trim(),
+      repo: config.value.githubEditorRepo.trim(),
+    })
+    editorGhAssetUrl.value = ''
+    statusMsg.value = editorGhAssets.value.length
+      ? `已列出编写器仓库 ${editorGhAssets.value.length} 个 Release 附件`
+      : '该 Release 下没有附件（或仓库尚无 Release）'
+  } catch (e) {
+    editorGhAssets.value = []
+    editorGhAssetUrl.value = ''
+    statusMsg.value = String(e)
+  } finally {
+    editorGhBusy.value = false
+  }
+}
+
+async function downloadOcliveFromGh() {
+  const url = ocliveGhAssetUrl.value.trim()
+  const asset = ocliveGhAssets.value.find((a) => a.browserDownloadUrl === url)
+  if (!asset) {
+    statusMsg.value = '请先点「列出附件」并选择一个文件'
+    return
+  }
+  ocliveGhBusy.value = true
+  try {
+    const r = await invoke<GhDownloadResult>('gh_download_release_asset', {
+      url: asset.browserDownloadUrl,
+      suggestedFileName: asset.name,
+      kind: 'oclive',
+    })
+    if (r.resolvedExe) {
+      config.value.ocliveExe = r.resolvedExe
+      config.value.ocliveMode = 'exe'
+      await saveConfig()
+      statusMsg.value = '已下载并填入 oclive 路径，已切换到 exe 模式并保存配置'
+    } else {
+      statusMsg.value = r.hint ? `${r.hint}（已保存：${r.savedPath}）` : `已保存：${r.savedPath}`
+    }
+  } catch (e) {
+    statusMsg.value = String(e)
+  } finally {
+    ocliveGhBusy.value = false
+  }
+}
+
+async function downloadEditorFromGh() {
+  const url = editorGhAssetUrl.value.trim()
+  const asset = editorGhAssets.value.find((a) => a.browserDownloadUrl === url)
+  if (!asset) {
+    statusMsg.value = '请先点「列出附件」并选择一个文件'
+    return
+  }
+  editorGhBusy.value = true
+  try {
+    const r = await invoke<GhDownloadResult>('gh_download_release_asset', {
+      url: asset.browserDownloadUrl,
+      suggestedFileName: asset.name,
+      kind: 'editor',
+    })
+    if (r.resolvedExe) {
+      config.value.editorExe = r.resolvedExe
+      config.value.editorMode = 'exe'
+      await saveConfig()
+      statusMsg.value = '已下载并填入编写器路径，已切换到 exe 模式并保存配置'
+    } else {
+      statusMsg.value = r.hint ? `${r.hint}（已保存：${r.savedPath}）` : `已保存：${r.savedPath}`
+    }
+  } catch (e) {
+    statusMsg.value = String(e)
+  } finally {
+    editorGhBusy.value = false
+  }
 }
 
 async function pickRolesRoot() {
@@ -345,6 +589,7 @@ async function confirmInstallRolePack() {
     installModalOpen.value = false
     pendingZipPath.value = null
     await runEnvironmentDiagnose({ quiet: true })
+    void maybeAutoPromptCreatorEcho()
   } catch (e) {
     statusMsg.value = String(e)
   } finally {
@@ -364,7 +609,7 @@ async function launchBundledOllamaInstaller() {
   try {
     await invoke('launch_bundled_ollama_installer')
     statusMsg.value = '已启动附带安装程序；完成后请在「环境」页点「重新检测」。'
-    focusLogs('bundled-ollama')
+    focusLogsFilter('bundled-ollama')
   } catch (e) {
     statusMsg.value = String(e)
   }
@@ -383,7 +628,7 @@ async function installOllamaViaWinget() {
     await invoke('install_ollama_via_winget')
     statusMsg.value =
       '已开始 winget 安装 Ollama，进度见「日志」→ 筛选 winget。完成后请点「重新检测」。'
-    focusLogs('winget')
+    focusLogsFilter('winget')
   } catch (e) {
     statusMsg.value = String(e)
   } finally {
@@ -396,7 +641,7 @@ async function pullRecommendedOllamaModel() {
   try {
     await invoke('ollama_pull_model', { model: DEFAULT_OLLAMA_MODEL })
     statusMsg.value = `已开始拉取「${DEFAULT_OLLAMA_MODEL}」，进度见「日志」→ 筛选 ollama。`
-    focusLogs('ollama')
+    focusLogsFilter('ollama')
   } catch (e) {
     statusMsg.value = String(e)
   } finally {
@@ -414,7 +659,7 @@ async function pullSelectedOllamaModel() {
   try {
     await invoke('ollama_pull_model', { model })
     statusMsg.value = `已开始拉取「${model}」，进度见「日志」→ 筛选 ollama。完成后可点「刷新本机列表」。`
-    focusLogs('ollama')
+    focusLogsFilter('ollama')
   } catch (e) {
     statusMsg.value = String(e)
   } finally {
@@ -594,12 +839,57 @@ function clearLogs() {
   logs.value = []
 }
 
-const navItems = [
+const navItems: {
+  id: string
+  label: string
+  icon: string
+  accent?: 'oclive' | 'editor'
+}[] = [
   { id: 'start', label: '新手', icon: '🚀' },
-  { id: 'apps', label: '启动', icon: '▶' },
+  { id: 'launch-oclive', label: 'oclive', icon: '💬', accent: 'oclive' },
+  { id: 'launch-editor', label: '编写器', icon: '✏️', accent: 'editor' },
   { id: 'assistant', label: '环境', icon: '🩺' },
   { id: 'logs', label: '日志', icon: '📋' },
-] as const
+]
+
+const THEME_STORAGE_KEY = 'oclive-launcher-theme'
+type ThemePreference = 'light' | 'dark' | 'system'
+const themePreference = ref<ThemePreference>('system')
+
+let themeMediaCleanup: (() => void) | undefined
+
+function isDarkEffective(): boolean {
+  if (themePreference.value === 'dark') return true
+  if (themePreference.value === 'light') return false
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+function applyRootTheme() {
+  document.documentElement.setAttribute('data-theme', isDarkEffective() ? 'dark' : 'light')
+}
+
+function cycleTheme() {
+  const order: ThemePreference[] = ['light', 'dark', 'system']
+  const i = order.indexOf(themePreference.value)
+  themePreference.value = order[(i + 1) % order.length]
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, themePreference.value)
+  } catch {
+    /* ignore */
+  }
+  applyRootTheme()
+}
+
+const themeCycleLabel = computed(() => {
+  switch (themePreference.value) {
+    case 'light':
+      return '浅色'
+    case 'dark':
+      return '深色'
+    default:
+      return '跟随系统'
+  }
+})
 
 const activeNav = ref<string>('start')
 
@@ -637,9 +927,17 @@ function openOcliveReleasesFromMenu() {
   closeVersionMenu()
 }
 
-function focusLogs(filter: 'ollama' | 'winget' | 'bundled-ollama') {
-  activeNav.value = 'logs'
+type LogAppFilter =
+  | 'all'
+  | 'editor'
+  | 'oclive'
+  | 'ollama'
+  | 'winget'
+  | 'bundled-ollama'
+
+function focusLogsFilter(filter: LogAppFilter) {
   logFilter.value = filter
+  activeNav.value = 'logs'
 }
 
 const currentViewLabel = computed(() => VIEW_LABELS[activeNav.value] ?? '')
@@ -652,12 +950,29 @@ function onDocKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     versionMenuOpen.value = false
     if (installModalOpen.value) cancelInstallRolePackModal()
+    if (creatorEchoModalOpen.value) closeCreatorEchoModal()
   }
 }
 
 onMounted(async () => {
   document.addEventListener('keydown', onDocKeydown)
   document.addEventListener('click', onVersionDocClick)
+  try {
+    const raw = localStorage.getItem(THEME_STORAGE_KEY)
+    if (raw === 'light' || raw === 'dark' || raw === 'system') {
+      themePreference.value = raw
+    }
+  } catch {
+    /* ignore */
+  }
+  applyRootTheme()
+  const mq = window.matchMedia('(prefers-color-scheme: dark)')
+  const onScheme = () => {
+    if (themePreference.value === 'system') applyRootTheme()
+  }
+  mq.addEventListener('change', onScheme)
+  themeMediaCleanup = () => mq.removeEventListener('change', onScheme)
+
   await loadAll()
   await maybeFirstLaunchAutoDiagnose()
   unlistenLog = await listen<{ app: string; stream: string; line: string }>(
@@ -676,6 +991,7 @@ onMounted(async () => {
 onUnmounted(() => {
   document.removeEventListener('keydown', onDocKeydown)
   document.removeEventListener('click', onVersionDocClick)
+  themeMediaCleanup?.()
   unlistenLog?.()
   unlistenExit?.()
 })
@@ -688,8 +1004,11 @@ onUnmounted(() => {
         v-for="item in navItems"
         :key="item.id"
         type="button"
-        class="rail-btn"
-        :class="{ active: activeNav === item.id }"
+        :class="[
+          'rail-btn',
+          { active: activeNav === item.id },
+          item.accent ? `rail-btn--accent-${item.accent}` : '',
+        ]"
         @click="setView(item.id)"
       >
         <span class="rail-ico" aria-hidden="true">{{ item.icon }}</span>
@@ -705,13 +1024,16 @@ onUnmounted(() => {
             <h1>{{ currentViewLabel }}</h1>
             <p class="sub">
               <template v-if="activeNav === 'start'">
-                不知道怎么下手就看这一页：按顺序做一遍，就能从「写设定」到「开聊」。维护者通知在最上面。
+                不知道怎么下手就看这一页：先看新手指引，再看创作者公告；维护者公告放在最下方。
               </template>
               <template v-else-if="activeNav === 'version'">
                 对照网上发布的版本号，顺便一键打开下载页。
               </template>
-              <template v-else-if="activeNav === 'apps'">
-                先配好聊天软件（oclive）和写设定的工具（编写器），再点按钮打开；一般不用开黑窗口。
+              <template v-else-if="activeNav === 'launch-oclive'">
+                配角色目录、对话大脑、安装包与启动路径；输出在下方摘要与「日志」里查看。
+              </template>
+              <template v-else-if="activeNav === 'launch-editor'">
+                下载或指定编写器（网页 / 源码 / exe），再一键打开；日志同样汇总在下方与「日志」页。
               </template>
               <template v-else-if="activeNav === 'assistant'">
                 看看 Node、Ollama、文件夹路径对不对；不对就按提示装或改路径。
@@ -750,6 +1072,15 @@ onUnmounted(() => {
                 </button>
               </div>
             </div>
+            <button
+              type="button"
+              class="btn theme-toggle-btn"
+              :title="`主题：${themeCycleLabel}（点击切换）`"
+              @click="cycleTheme"
+            >
+              {{ themeCycleLabel === '跟随系统' ? '◐' : themeCycleLabel === '深色' ? '🌙' : '☀️' }}
+              {{ themeCycleLabel }}
+            </button>
             <button type="button" class="btn primary" @click="saveConfig">保存配置</button>
           </div>
         </div>
@@ -772,31 +1103,6 @@ onUnmounted(() => {
 
       <div class="scroll-main">
         <div v-if="activeNav === 'start'" class="view-panel view-start-stack">
-        <section class="card announce-board">
-          <div class="section-title-row">
-            <h2>维护者通知</h2>
-            <HelpHint
-              v-if="announceEditEnabled"
-              text="当前为可编辑构建：改完点保存。发给用户的安装包请不要打开「可编辑公告」，这样别人只能看、不能改。"
-            />
-            <HelpHint
-              v-else
-              text="这段文字由维护者写好随启动器分发，用来发群公告、更新说明等。普通用户不能在这里改；要编辑请用带 VITE_ANNOUNCE_EDITABLE=true 的维护者构建，或直接改配置目录里的 announcements.md。"
-            />
-          </div>
-          <p v-if="!announceEditEnabled" class="hint tiny announce-board-hint">
-            只读。需要改公告请使用维护者专用构建，或编辑应用配置目录中的 <code>announcements.md</code>。
-          </p>
-          <template v-if="announceEditEnabled">
-            <textarea v-model="announcements" class="announce" rows="8" spellcheck="false" />
-            <button type="button" class="btn" @click="saveAnnouncements">保存通知</button>
-          </template>
-          <template v-else>
-            <p v-if="!announcements.trim()" class="hint announce-empty">暂无通知。</p>
-            <pre v-else class="announce-readonly">{{ announcements }}</pre>
-          </template>
-        </section>
-
         <section class="card guide-card">
         <div class="section-title-row">
           <h2>新手照着做就行</h2>
@@ -820,13 +1126,13 @@ onUnmounted(() => {
             GitHub。会开发的同学也可以把仓库克隆到本地。
           </li>
           <li>
-            <strong>在「启动」里填路径</strong>：告诉启动器编写器和 oclive 在哪（网页 / 文件夹 / exe 三选一）；再填「角色包根目录」让聊天软件找得到角色（可点「从 oclive 仓库填入」偷懒）。
+            <strong>在左侧「oclive」「编写器」里填路径</strong>：告诉启动器两个软件在哪（网页 / 文件夹 / exe）；在 oclive 页填「角色包根目录」让聊天软件找得到角色（可点「从仓库猜」偷懒）。
           </li>
           <li>
             <strong>准备角色文件</strong>：编写器导出 zip，解压到角色目录里对应角色文件夹；或用编写器自带的「写入文件夹」。
           </li>
           <li>
-            <strong>开聊</strong>：从启动器启动 oclive，在软件里选角色对话。用 Ollama 的话记得先拉模型（「环境」页有快捷按钮）。
+            <strong>开聊</strong>：在左侧「oclive」页启动聊天软件，在软件里选角色对话。用 Ollama 的话记得先拉模型（「环境」页有快捷按钮）。
           </li>
         </ol>
         <p class="hint guide-links">
@@ -840,6 +1146,96 @@ onUnmounted(() => {
           ·
           <button type="button" class="linkish" @click="openRelease(releasesOcliveUrl)">运行时 Releases</button>
         </p>
+      </section>
+
+      <section class="card announce-board announce-board--creator">
+        <div class="section-title-row">
+          <h2>创作者公告</h2>
+          <HelpHint
+            v-if="announceEditEnabled"
+            text="寄语墙由每位创作者本机留一句；下方 Markdown 可作置顶说明（活动、创作提示等）。"
+          />
+          <HelpHint
+            v-else
+            text="后来的创作者在这里留下的一句话会显示在寄语墙；置顶说明由维护者写在 Markdown 里。"
+          />
+        </div>
+        <p class="hint tiny creator-echo-lead">
+          灵感来自《尼尔：机械纪元》片尾：第一次把作品装进角色目录之后，你也可以<strong>留一句话</strong>给下一个打开启动器的人。数据保存在本机；若要「汇成大海」需自行分发或汇总
+          <code>creator-echo-messages.json</code>。
+        </p>
+        <p v-if="!announceEditEnabled" class="hint tiny announce-board-hint">
+          只读。置顶：<code>creator-announcements.md</code>；寄语列表：<code>creator-echo-messages.json</code>；是否已留言：<code>creator-echo-state.json</code>。
+        </p>
+
+        <div v-if="creatorEchoMessagesReversed.length" class="creator-echo-wall">
+          <p class="creator-echo-wall-label">后来的创作者说</p>
+          <ul class="creator-echo-list">
+            <li
+              v-for="(m, i) in creatorEchoMessagesReversed"
+              :key="`${m.createdAt}-${i}`"
+              class="creator-echo-line"
+            >
+              {{ m.text }}
+            </li>
+          </ul>
+        </div>
+        <p v-else class="hint creator-echo-empty">
+          还没有寄语。从 zip 装好第一个角色包后，我们会轻轻问你要不要写一句；也可以随时点下面按钮。
+        </p>
+
+        <div class="creator-echo-actions">
+          <button
+            v-if="!creatorEchoState.hasSubmitted"
+            type="button"
+            class="btn"
+            @click="openCreatorEchoModal"
+          >
+            我完成了第一次创作，留一句话
+          </button>
+          <p v-else class="hint tiny creator-echo-done">
+            你已在当前电脑留过一句创作寄语。若要改文案，可由维护者编辑配置目录里的 JSON，或删除
+            <code>creator-echo-state.json</code> 后重新提交（慎用）。
+          </p>
+        </div>
+
+        <div
+          v-if="!announceEditEnabled && creatorAnnouncements.trim()"
+          class="creator-announcements-sticky"
+        >
+          <p class="creator-echo-wall-label">置顶说明</p>
+          <pre class="announce-readonly announce-readonly--compact">{{ creatorAnnouncements }}</pre>
+        </div>
+        <template v-if="announceEditEnabled">
+          <p class="hint tiny">维护用：编辑置顶 Markdown（<code>creator-announcements.md</code>）</p>
+          <textarea v-model="creatorAnnouncements" class="announce" rows="7" spellcheck="false" />
+          <button type="button" class="btn" @click="saveCreatorAnnouncements">保存创作者公告</button>
+        </template>
+      </section>
+
+      <section class="card announce-board announce-board--maintainer">
+        <div class="section-title-row">
+          <h2>维护者公告</h2>
+          <HelpHint
+            v-if="announceEditEnabled"
+            text="维护者面向所有用户的公告（更新说明、兼容提醒、紧急通知）。"
+          />
+          <HelpHint
+            v-else
+            text="这段文字由维护者写好随启动器分发。普通用户不能编辑。"
+          />
+        </div>
+        <p v-if="!announceEditEnabled" class="hint tiny announce-board-hint">
+          只读。需要修改请使用维护者专用构建，或编辑配置目录中的 <code>announcements.md</code>。
+        </p>
+        <template v-if="announceEditEnabled">
+          <textarea v-model="maintainerAnnouncements" class="announce" rows="7" spellcheck="false" />
+          <button type="button" class="btn" @click="saveMaintainerAnnouncements">保存维护者公告</button>
+        </template>
+        <template v-else>
+          <p v-if="!maintainerAnnouncements.trim()" class="hint announce-empty">暂无维护者公告。</p>
+          <pre v-else class="announce-readonly">{{ maintainerAnnouncements }}</pre>
+        </template>
       </section>
         </div>
 
@@ -942,7 +1338,7 @@ onUnmounted(() => {
           </button>
         </div>
         <div v-if="config.ocliveLlmMode === 'remote' && envDiag" class="banner-hint-remote" role="note">
-          你在「启动」里选了<strong>云端大脑</strong>，聊天可以不靠本机 Ollama；下面装 zip、选模型时若仍要用本机模型，下面的按钮照样有用。
+          你在 oclive 页选了<strong>云端大脑</strong>，聊天可以不靠本机 Ollama；下面装 zip、选模型时若仍要用本机模型，下面的按钮照样有用。
         </div>
 
         <div class="assistant-actions">
@@ -1030,7 +1426,7 @@ onUnmounted(() => {
               下安装包，装完让它在后台跑。Windows 可用 winget 或启动器打包里附带的安装包（可能弹 UAC）。
             </li>
             <li>
-              <strong>模型</strong>：装完软件还要单独拉模型。可在「启动」里装 zip 角色包时顺手拉，或终端执行
+              <strong>模型</strong>：装完软件还要单独拉模型。可在 oclive 页装 zip 角色包时顺手拉，或终端执行
               <code>ollama pull 模型名</code>；列表见
               <button type="button" class="linkish inline" @click="openRelease('https://ollama.com/library')">模型库</button>。常用推荐
               <code>qwen2.5:7b</code>。
@@ -1103,136 +1499,286 @@ onUnmounted(() => {
         </p>
       </section>
 
-    <div v-else-if="activeNav === 'apps'" class="view-panel grid grid-2 apps-grid">
-      <section class="card card--primary-app">
-        <div class="section-title-row">
-          <h2>oclive（聊天窗口）</h2>
-          <HelpHint
-            text="这就是真正「聊天」的软件。上面填角色文件夹、选大脑，下面告诉启动器 exe 或源码在哪。"
-          />
-        </div>
-        <div class="roles-block">
-          <div class="label-with-hint">
-            <label>角色都存在哪个文件夹</label>
+    <div v-else-if="activeNav === 'launch-oclive'" class="view-panel app-launch-page app-launch-page--oclive">
+      <p class="apps-terminal-banner">
+        在本页启动 <strong>oclive</strong>（含 npm 开发模式）时，<strong>标准输出会进下方摘要与「日志」页</strong>；启动器已尽量隐藏命令行黑窗（Windows）。安装向导与软件自身窗口仍会弹出。
+      </p>
+      <div class="apps-launch-stack">
+        <section class="card card--primary-app card--launch-app card--hero-oclive">
+          <div class="section-title-row section-title-row--launch">
+            <h2>oclive（聊天窗口）</h2>
             <HelpHint
-              text="填「很多个角色文件夹」的共同上一级。里面通常是「角色名/」下面再有一堆配置。不填也能启动，但不会自动帮你指到磁盘上的角色。"
+              text="这就是真正「聊天」的软件。上面填角色文件夹、选大脑，下面告诉启动器 exe 或源码在哪。"
             />
           </div>
-          <p class="hint tiny">就是一堆 <code>角色id</code> 子文件夹的<strong>父目录</strong>；启动器会告诉 oclive 去那儿找。</p>
-          <div class="row">
-            <input v-model="config.ocliveRolesDir" placeholder="例如 D:\oclivenewnew\roles" />
-            <button type="button" class="btn" @click="pickRolesRoot">浏览…</button>
-            <button type="button" class="btn" @click="fillSuggestedRolesDir">从仓库猜一个</button>
-          </div>
-          <p class="hint tiny">编写器导出的 zip / ocpak 可以装到这个目录里。</p>
-          <div class="row role-install-row">
-            <button type="button" class="btn primary" @click="beginInstallRolePack">用 zip 装一个角色包…</button>
-          </div>
-        </div>
-        <div class="llm-backend-block">
-          <div class="label-with-hint">
-            <label>对话用谁想（大脑）</label>
-            <HelpHint
-              text="本机：走 Ollama 里的模型。云端：填你自己搭好的接口地址（JSON-RPC），适合不用本机显卡的情况。"
-            />
-          </div>
-          <p class="hint tiny">选「本机」就是 Ollama；选「云端」要在下面填网址，细节见主仓库说明文档。</p>
-          <div class="mode">
-            <label><input v-model="config.ocliveLlmMode" type="radio" value="ollama" /> 本机 Ollama</label>
-            <label><input v-model="config.ocliveLlmMode" type="radio" value="remote" /> 云端接口</label>
-          </div>
-          <template v-if="config.ocliveLlmMode === 'remote'">
-            <label>云端地址（JSON-RPC）</label>
-            <input
-              v-model="config.ocliveRemoteLlmUrl"
-              placeholder="例如 http://127.0.0.1:8765/rpc"
-              autocomplete="off"
-            />
-            <label>令牌 Token（没有就空着）</label>
-            <input
-              v-model="config.ocliveRemoteLlmToken"
-              type="password"
-              autocomplete="off"
-              placeholder="可选"
-            />
-            <label>超时多少毫秒（可选）</label>
-            <input
-              v-model="config.ocliveRemoteLlmTimeoutMs"
-              placeholder="例如 120000"
-              inputmode="numeric"
-            />
-          </template>
-        </div>
-        <div class="mode mode--wrap">
-          <label><input v-model="config.ocliveMode" type="radio" value="dev" /> 本地跑源码（npm）</label>
-          <label><input v-model="config.ocliveMode" type="radio" value="exe" /> 用安装好的 exe</label>
-        </div>
-        <template v-if="config.ocliveMode === 'dev'">
-          <label>oclive 源码文件夹</label>
-          <div class="row">
-            <input v-model="config.ocliveProjectRoot" placeholder="例如 D:\oclivenewnew" />
-            <button type="button" class="btn" @click="pickOcliveRoot">浏览…</button>
-          </div>
-          <label>npm 里要跑哪条命令</label>
-          <input v-model="config.ocliveNpmScript" placeholder="一般写 tauri:dev" />
-        </template>
-        <template v-else>
-          <label>oclive 的 exe 在哪</label>
-          <div class="row">
-            <input v-model="config.ocliveExe" placeholder="选你的 oclive.exe" />
-            <button type="button" class="btn" @click="pickOcliveExe">浏览…</button>
-          </div>
-        </template>
-        <div class="actions">
-          <button type="button" class="btn primary" @click="spawnOclive">启动 oclive</button>
-          <button type="button" class="btn danger" @click="stopOclive">关掉</button>
-        </div>
-      </section>
 
-      <section class="card">
-        <div class="section-title-row">
-          <h2>角色包编写器</h2>
-          <HelpHint
-            text="用来写人设、世界观、导出 zip。一般用浏览器打开官网就够；只有要改源码时才选下面两种。"
-          />
-        </div>
-        <div class="mode mode--wrap">
-          <label><input v-model="config.editorMode" type="radio" value="web" /> 用网页（省事）</label>
-          <label><input v-model="config.editorMode" type="radio" value="dev" /> 本地源码（npm）</label>
-          <label><input v-model="config.editorMode" type="radio" value="exe" /> 安装版 exe</label>
-        </div>
-        <template v-if="config.editorMode === 'web'">
-          <label>网页地址（可空）</label>
-          <input
-            v-model="config.editorWebUrl"
-            type="url"
-            autocomplete="off"
-            :placeholder="`不填就用：${editorPagesUrlPreview}`"
-          />
-          <p class="hint tiny">空着时按「版本」页的仓库名打开线上 Pages；本地调试可填 <code>http://127.0.0.1:…</code>。</p>
-        </template>
-        <template v-else-if="config.editorMode === 'dev'">
-          <label>编写器源码根目录</label>
-          <div class="row">
-            <input v-model="config.editorProjectRoot" placeholder="例如 D:\oclive-pack-editor" />
-            <button type="button" class="btn" @click="pickEditorRoot">浏览…</button>
+          <div class="app-feature-block">
+            <h3 class="app-feature-block__title">① 角色与资源</h3>
+            <div class="roles-block roles-block--in-launch">
+              <div class="label-with-hint">
+                <label>角色包根目录</label>
+                <HelpHint
+                  text="填「很多个角色文件夹」的共同上一级。里面通常是「角色名/」下面再有一堆配置。不填也能启动，但不会自动帮你指到磁盘上的角色。"
+                />
+              </div>
+              <p class="hint tiny">一堆 <code>角色id</code> 子文件夹的<strong>父目录</strong>；启动器会注入给 oclive。</p>
+              <div class="row">
+                <input v-model="config.ocliveRolesDir" placeholder="例如 D:\oclivenewnew\roles" />
+                <button type="button" class="btn" @click="pickRolesRoot">浏览…</button>
+                <button type="button" class="btn" @click="fillSuggestedRolesDir">从仓库猜</button>
+              </div>
+              <p class="hint tiny">编写器导出的 zip / ocpak 可装到此目录。</p>
+              <div class="row role-install-row">
+                <button type="button" class="btn primary" @click="beginInstallRolePack">用 zip 装角色包…</button>
+              </div>
+            </div>
           </div>
-          <label>npm 脚本名</label>
-          <input v-model="config.editorNpmScript" placeholder="tauri:dev" />
-        </template>
-        <template v-else>
-          <label>编写器 exe</label>
-          <div class="row">
-            <input v-model="config.editorExe" placeholder=".exe 路径" />
-            <button type="button" class="btn" @click="pickEditorExe">浏览…</button>
+
+          <div class="app-feature-block">
+            <h3 class="app-feature-block__title">② 对话大脑（LLM）</h3>
+            <div class="llm-backend-block llm-backend-block--in-launch">
+              <div class="label-with-hint">
+                <label>用本机还是云端</label>
+                <HelpHint
+                  text="本机：走 Ollama 里的模型。云端：填你自己搭好的接口地址（JSON-RPC），适合不用本机显卡的情况。"
+                />
+              </div>
+              <p class="hint tiny">选「本机」即 Ollama；「云端」须填下方地址。</p>
+              <div class="mode">
+                <label><input v-model="config.ocliveLlmMode" type="radio" value="ollama" /> 本机 Ollama</label>
+                <label><input v-model="config.ocliveLlmMode" type="radio" value="remote" /> 云端接口</label>
+              </div>
+              <template v-if="config.ocliveLlmMode === 'remote'">
+                <label>云端地址（JSON-RPC）</label>
+                <input
+                  v-model="config.ocliveRemoteLlmUrl"
+                  placeholder="例如 http://127.0.0.1:8765/rpc"
+                  autocomplete="off"
+                />
+                <label>令牌 Token（可选）</label>
+                <input
+                  v-model="config.ocliveRemoteLlmToken"
+                  type="password"
+                  autocomplete="off"
+                  placeholder="可选"
+                />
+                <label>超时毫秒（可选）</label>
+                <input
+                  v-model="config.ocliveRemoteLlmTimeoutMs"
+                  placeholder="例如 120000"
+                  inputmode="numeric"
+                />
+              </template>
+            </div>
           </div>
-        </template>
-        <div class="actions">
-          <button type="button" class="btn primary" @click="spawnEditor">
-            {{ config.editorMode === 'web' ? '在浏览器打开' : '启动编写器' }}
-          </button>
-          <button type="button" class="btn danger" @click="stopEditor">关掉</button>
+
+          <div class="app-feature-block">
+            <h3 class="app-feature-block__title">③ 获取 oclive 安装包</h3>
+            <div class="gh-release-dl gh-release-dl--compact">
+              <label class="gh-release-dl__label">GitHub Release（「版本」里的 owner / repo）</label>
+              <div class="row gh-release-dl-row">
+                <button
+                  type="button"
+                  class="btn"
+                  :disabled="ocliveGhBusy"
+                  @click="refreshOcliveGhAssets"
+                >
+                  列出附件
+                </button>
+                <select v-model="ocliveGhAssetUrl" class="gh-asset-select">
+                  <option value="">选择文件…</option>
+                  <option
+                    v-for="a in ocliveGhAssets"
+                    :key="a.browserDownloadUrl"
+                    :value="a.browserDownloadUrl"
+                  >
+                    {{ a.name }} — {{ formatGhBytes(a.size) }}
+                  </option>
+                </select>
+                <button
+                  type="button"
+                  class="btn primary"
+                  :disabled="ocliveGhBusy || !ocliveGhAssetUrl"
+                  @click="downloadOcliveFromGh"
+                >
+                  下载到…
+                </button>
+              </div>
+              <p class="hint tiny">
+                另存为选路径；zip 会解压到「文件名_extracted」并尝试填入 exe。
+              </p>
+            </div>
+          </div>
+
+          <div class="app-feature-block">
+            <h3 class="app-feature-block__title">④ 启动方式与路径</h3>
+            <div class="mode mode--wrap">
+              <label><input v-model="config.ocliveMode" type="radio" value="dev" /> 本地源码（npm）</label>
+              <label><input v-model="config.ocliveMode" type="radio" value="exe" /> 已安装的 exe</label>
+            </div>
+            <template v-if="config.ocliveMode === 'dev'">
+              <label>源码根目录</label>
+              <div class="row">
+                <input v-model="config.ocliveProjectRoot" placeholder="例如 D:\oclivenewnew" />
+                <button type="button" class="btn" @click="pickOcliveRoot">浏览…</button>
+              </div>
+              <label>npm 脚本名</label>
+              <input v-model="config.ocliveNpmScript" placeholder="一般写 tauri:dev" />
+            </template>
+            <template v-else>
+              <label>oclive.exe 路径</label>
+              <div class="row">
+                <input v-model="config.ocliveExe" placeholder="选你的 oclive.exe" />
+                <button type="button" class="btn" @click="pickOcliveExe">浏览…</button>
+              </div>
+            </template>
+          </div>
+
+          <div class="app-feature-block app-feature-block--run">
+            <h3 class="app-feature-block__title">⑤ 运行</h3>
+            <div class="actions actions--launch">
+              <button type="button" class="btn primary btn-launch" @click="spawnOclive">启动 oclive</button>
+              <button type="button" class="btn danger btn-launch" @click="stopOclive">结束进程</button>
+              <button type="button" class="btn btn-launch-secondary" @click="focusLogsFilter('oclive')">
+                在「日志」里只看 oclive
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card apps-log-preview-card">
+        <div class="apps-log-preview-head">
+          <h3 class="apps-log-preview-title">oclive 输出摘要</h3>
+          <div class="apps-log-preview-tools">
+            <button type="button" class="btn" @click="focusLogsFilter('all')">打开完整日志页</button>
+          </div>
         </div>
+        <pre
+          ref="appsLogPreviewEl"
+          class="apps-log-preview"
+          :class="{ 'apps-log-preview--empty': !ocliveLogPreviewText.trim() }"
+        >{{ ocliveLogPreviewText || '尚无输出；启动 oclive 后这里会滚动显示最近几行。' }}</pre>
+        <p class="hint tiny apps-log-preview-foot">
+          完整历史与筛选（ollama、winget 等）在左侧「日志」。
+        </p>
+      </section>
+    </div>
+
+    <div v-else-if="activeNav === 'launch-editor'" class="view-panel app-launch-page app-launch-page--editor">
+      <p class="apps-terminal-banner apps-terminal-banner--editor">
+        在本页打开 <strong>角色包编写器</strong> 时，npm / exe 的<strong>输出同样汇总在下方与「日志」页</strong>；用「网页」模式则会在系统浏览器中打开。
+      </p>
+      <div class="apps-launch-stack">
+        <section class="card card--launch-app card--hero-editor">
+          <div class="section-title-row section-title-row--launch">
+            <h2>角色包编写器</h2>
+            <HelpHint
+              text="用来写人设、世界观、导出 zip。一般用浏览器打开官网就够；只有要改源码时才选下面两种。"
+            />
+          </div>
+
+          <div class="app-feature-block">
+            <h3 class="app-feature-block__title">① 获取编写器</h3>
+            <div class="gh-release-dl gh-release-dl--compact">
+              <label class="gh-release-dl__label">GitHub Release（「版本」里的 owner / repo）</label>
+              <div class="row gh-release-dl-row">
+                <button
+                  type="button"
+                  class="btn"
+                  :disabled="editorGhBusy"
+                  @click="refreshEditorGhAssets"
+                >
+                  列出附件
+                </button>
+                <select v-model="editorGhAssetUrl" class="gh-asset-select">
+                  <option value="">选择文件…</option>
+                  <option
+                    v-for="a in editorGhAssets"
+                    :key="a.browserDownloadUrl"
+                    :value="a.browserDownloadUrl"
+                  >
+                    {{ a.name }} — {{ formatGhBytes(a.size) }}
+                  </option>
+                </select>
+                <button
+                  type="button"
+                  class="btn primary"
+                  :disabled="editorGhBusy || !editorGhAssetUrl"
+                  @click="downloadEditorFromGh"
+                >
+                  下载到…
+                </button>
+              </div>
+              <p class="hint tiny">另存为选路径；便携 zip 会解压并尝试填入 exe。</p>
+            </div>
+          </div>
+
+          <div class="app-feature-block">
+            <h3 class="app-feature-block__title">② 打开方式</h3>
+            <div class="mode mode--wrap">
+              <label><input v-model="config.editorMode" type="radio" value="web" /> 网页</label>
+              <label><input v-model="config.editorMode" type="radio" value="dev" /> 本地源码（npm）</label>
+              <label><input v-model="config.editorMode" type="radio" value="exe" /> 本地 exe</label>
+            </div>
+            <template v-if="config.editorMode === 'web'">
+              <label>网页地址（可空）</label>
+              <input
+                v-model="config.editorWebUrl"
+                type="url"
+                autocomplete="off"
+                :placeholder="`不填：${editorPagesUrlPreview}`"
+              />
+              <p class="hint tiny">空则用线上 Pages；本地调试可填 <code>http://127.0.0.1:…</code>。</p>
+            </template>
+            <template v-else-if="config.editorMode === 'dev'">
+              <label>源码根目录</label>
+              <div class="row">
+                <input v-model="config.editorProjectRoot" placeholder="例如 D:\oclive-pack-editor" />
+                <button type="button" class="btn" @click="pickEditorRoot">浏览…</button>
+              </div>
+              <label>npm 脚本名</label>
+              <input v-model="config.editorNpmScript" placeholder="tauri:dev" />
+            </template>
+            <template v-else>
+              <label>编写器 exe</label>
+              <div class="row">
+                <input v-model="config.editorExe" placeholder=".exe 路径" />
+                <button type="button" class="btn" @click="pickEditorExe">浏览…</button>
+              </div>
+            </template>
+          </div>
+
+          <div class="app-feature-block app-feature-block--run">
+            <h3 class="app-feature-block__title">③ 运行</h3>
+            <div class="actions actions--launch">
+              <button type="button" class="btn primary btn-launch" @click="spawnEditor">
+                {{ config.editorMode === 'web' ? '在浏览器打开' : '启动编写器' }}
+              </button>
+              <button type="button" class="btn danger btn-launch" @click="stopEditor">结束进程</button>
+              <button type="button" class="btn btn-launch-secondary" @click="focusLogsFilter('editor')">
+                在「日志」里只看编写器
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card apps-log-preview-card">
+        <div class="apps-log-preview-head">
+          <h3 class="apps-log-preview-title">编写器输出摘要</h3>
+          <div class="apps-log-preview-tools">
+            <button type="button" class="btn" @click="focusLogsFilter('all')">打开完整日志页</button>
+          </div>
+        </div>
+        <pre
+          ref="appsLogPreviewEl"
+          class="apps-log-preview"
+          :class="{ 'apps-log-preview--empty': !editorLogPreviewText.trim() }"
+        >{{ editorLogPreviewText || '尚无输出；启动编写器后这里会滚动显示最近几行。' }}</pre>
+        <p class="hint tiny apps-log-preview-foot">
+          完整历史与筛选在左侧「日志」。
+        </p>
       </section>
     </div>
 
@@ -1241,7 +1787,7 @@ onUnmounted(() => {
         <div class="section-title-row log-title-row">
           <h2>后台日志</h2>
           <HelpHint
-            text="编写器、oclive、装模型时打印的黑字都在这。卡住了先筛到对应一项看最后几行报错。"
+            text="从「oclive」「编写器」页启动的程序、以及拉模型、winget 等输出都会汇总在这里；不必另开终端。卡住了用下拉筛到对应项看最后几行。"
           />
         </div>
         <div class="log-tools">
@@ -1321,6 +1867,52 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+
+      <div
+        v-if="creatorEchoModalOpen"
+        class="install-modal-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="creator-echo-modal-title"
+        @click.self="closeCreatorEchoModal"
+      >
+        <div class="install-modal-panel card creator-echo-modal-panel" @click.stop>
+          <h2 id="creator-echo-modal-title">给后来的创作者一句话</h2>
+          <p class="hint tiny">
+            每人在这台电脑上只能提交一次。一句话即可，不要换行（最多 {{ CREATOR_ECHO_MAX_CHARS }} 字）。
+          </p>
+          <textarea
+            v-model="creatorEchoDraft"
+            class="announce creator-echo-textarea"
+            rows="4"
+            spellcheck="true"
+            placeholder="例如：别怕改设定，我第三次导出才顺。"
+          />
+          <p
+            class="hint tiny creator-echo-charcount"
+            :class="{ 'creator-echo-charcount--warn': creatorEchoCharCount > CREATOR_ECHO_MAX_CHARS }"
+          >
+            {{ creatorEchoCharCount }} / {{ CREATOR_ECHO_MAX_CHARS }} 字
+          </p>
+          <div class="modal-actions">
+            <button type="button" class="btn" :disabled="creatorEchoBusy" @click="closeCreatorEchoModal">
+              稍后再说
+            </button>
+            <button
+              type="button"
+              class="btn primary"
+              :disabled="
+                creatorEchoBusy ||
+                !creatorEchoDraft.trim() ||
+                creatorEchoCharCount > CREATOR_ECHO_MAX_CHARS
+              "
+              @click="submitCreatorEcho"
+            >
+              留下这句话
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -1332,17 +1924,24 @@ onUnmounted(() => {
   font-family: var(--fluent-font);
   color: var(--fluent-text-primary);
   background: var(--fluent-bg-page);
+  transition:
+    background 0.22s ease,
+    color 0.18s ease;
 }
 
 .rail {
-  width: 76px;
+  width: 92px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.85rem 0.4rem;
+  gap: 0.45rem;
+  padding: 1rem 0.45rem;
   border-right: 1px solid var(--fluent-border-stroke);
-  background: var(--fluent-bg-card);
+  background: linear-gradient(
+    175deg,
+    var(--fluent-bg-card) 0%,
+    color-mix(in srgb, var(--fluent-bg-page) 55%, var(--fluent-bg-card)) 100%
+  );
   box-shadow: var(--fluent-shadow-soft);
 }
 
@@ -1350,38 +1949,65 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0.45rem 0.2rem;
+  gap: 0.3rem;
+  padding: 0.1rem 0;
   border: none;
-  border-radius: var(--fluent-radius-lg);
+  border-radius: 0;
   background: transparent;
   color: var(--fluent-text-secondary);
   cursor: pointer;
   font-size: 0.65rem;
   font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.rail-btn:focus-visible {
+  outline: none;
+}
+
+.rail-btn:focus-visible .rail-ico {
+  box-shadow: 0 0 0 2px var(--fluent-border-focus);
+}
+
+.rail-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border-radius: var(--fluent-radius);
+  font-size: 1.25rem;
+  line-height: 1;
   transition:
     background 0.15s ease,
     color 0.15s ease;
 }
 
-.rail-btn:hover {
+.rail-btn:hover .rail-ico {
   background: var(--fluent-bg-subtle);
   color: var(--fluent-text-primary);
 }
 
-.rail-btn.active {
+.rail-btn.active .rail-ico {
   background: var(--fluent-accent-subtle);
   color: var(--fluent-accent);
 }
 
-.rail-ico {
-  font-size: 1.2rem;
-  line-height: 1;
+.rail-btn--accent-oclive.active .rail-ico {
+  background: var(--rail-accent-oclive-bg);
+  color: var(--rail-accent-oclive);
+}
+
+.rail-btn--accent-editor.active .rail-ico {
+  background: var(--rail-accent-editor-bg);
+  color: var(--rail-accent-editor);
 }
 
 .rail-lbl {
-  line-height: 1.1;
+  line-height: 1.15;
   text-align: center;
+  max-width: 100%;
 }
 
 .main-col {
@@ -1415,6 +2041,14 @@ onUnmounted(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+.theme-toggle-btn {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.65rem;
+  min-height: 32px;
+  border-color: var(--fluent-border-stroke);
+  background: var(--fluent-bg-subtle);
 }
 
 .version-dropdown {
@@ -1471,6 +2105,14 @@ onUnmounted(() => {
   margin: 0;
 }
 
+.announce-board--creator {
+  border-left: 3px solid var(--rail-accent-editor);
+}
+
+.announce-board--maintainer {
+  border-left: 3px solid var(--fluent-accent);
+}
+
 .announce-board-hint {
   margin-top: 0;
 }
@@ -1492,6 +2134,87 @@ onUnmounted(() => {
 .announce-empty {
   margin: 0;
   font-style: italic;
+}
+
+.creator-echo-lead {
+  margin-top: 0.35rem;
+  line-height: 1.55;
+}
+
+.creator-echo-wall {
+  margin-top: 0.75rem;
+}
+
+.creator-echo-wall-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fluent-text-secondary);
+}
+
+.creator-echo-list {
+  display: flex;
+  max-height: 14rem;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.creator-echo-line {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border-left: 2px solid var(--rail-accent-editor);
+  border-radius: var(--fluent-radius);
+  font-size: 0.8125rem;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--fluent-text-secondary);
+  background: var(--fluent-bg-subtle);
+}
+
+.creator-echo-empty {
+  margin: 0.5rem 0 0;
+}
+
+.creator-echo-actions {
+  margin-top: 0.65rem;
+}
+
+.creator-echo-done {
+  margin: 0;
+}
+
+.creator-announcements-sticky {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--fluent-border-stroke);
+}
+
+.announce-readonly--compact {
+  margin-top: 0.35rem;
+}
+
+.creator-echo-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.creator-echo-charcount {
+  margin: 0.25rem 0 0;
+}
+
+.creator-echo-charcount--warn {
+  color: var(--fluent-danger-text);
+}
+
+.creator-echo-modal-panel {
+  max-width: 26rem;
 }
 
 .titlebar h1 {
@@ -1539,6 +2262,10 @@ onUnmounted(() => {
   margin-left: auto;
   margin-right: auto;
   width: 100%;
+}
+
+.scroll-main > .view-panel.app-launch-page {
+  max-width: 1220px;
 }
 
 .grid {
@@ -1674,6 +2401,33 @@ onUnmounted(() => {
   border-color: color-mix(in srgb, var(--fluent-accent) 25%, var(--fluent-border-stroke));
 }
 
+.card--hero-oclive {
+  border-left: 3px solid var(--rail-accent-oclive);
+  box-shadow:
+    var(--fluent-shadow-card),
+    inset 0 1px 0 color-mix(in srgb, var(--rail-accent-oclive) 25%, transparent);
+}
+
+.card--hero-editor {
+  border-left: 3px solid var(--rail-accent-editor);
+  box-shadow:
+    var(--fluent-shadow-card),
+    inset 0 1px 0 color-mix(in srgb, var(--rail-accent-editor) 22%, transparent);
+}
+
+.app-launch-page--oclive .app-feature-block__title {
+  color: var(--rail-accent-oclive);
+}
+
+.app-launch-page--editor .app-feature-block__title {
+  color: var(--rail-accent-editor);
+}
+
+.apps-terminal-banner--editor {
+  border-color: color-mix(in srgb, var(--rail-accent-editor) 38%, var(--fluent-border-stroke));
+  background: color-mix(in srgb, var(--rail-accent-editor) 9%, var(--fluent-bg-card));
+}
+
 .log-title-row {
   margin-bottom: 0;
   flex: 1;
@@ -1787,6 +2541,164 @@ input[type='text']:focus {
 
 .mode--wrap {
   flex-wrap: wrap;
+}
+
+.gh-release-dl {
+  margin: 0.65rem 0 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-stroke);
+  background: var(--fluent-bg-subtle);
+}
+
+.gh-release-dl > label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: var(--fluent-text-primary);
+}
+
+.gh-release-dl-row {
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.gh-asset-select {
+  flex: 1;
+  min-width: 160px;
+  min-height: 32px;
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-control);
+  background: var(--fluent-bg-card);
+  color: var(--fluent-text-primary);
+  font-size: 0.82rem;
+  padding: 0.25rem 0.35rem;
+}
+
+.gh-release-dl--compact {
+  margin: 0;
+  padding: 0.5rem 0.55rem;
+}
+
+.app-launch-page .apps-terminal-banner {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--fluent-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--fluent-accent) 35%, var(--fluent-border-stroke));
+  background: color-mix(in srgb, var(--fluent-accent) 8%, var(--fluent-bg-card));
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--fluent-text-primary);
+}
+
+.apps-launch-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.card--launch-app {
+  padding: 1.2rem 1.35rem 1.35rem;
+}
+
+.section-title-row--launch h2 {
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.app-feature-block {
+  margin-bottom: 1.05rem;
+  padding-bottom: 1.05rem;
+  border-bottom: 1px solid var(--fluent-border-stroke);
+}
+
+.app-feature-block--run {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.app-feature-block__title {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fluent-accent);
+}
+
+.app-launch-page .roles-block--in-launch,
+.app-launch-page .llm-backend-block--in-launch {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.btn-launch {
+  min-height: 46px;
+  padding: 0.55rem 1.35rem;
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.btn-launch-secondary {
+  min-height: 46px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.actions--launch {
+  margin-top: 0.35rem;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.apps-log-preview-card {
+  margin-top: 0;
+}
+
+.apps-log-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+
+.apps-log-preview-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.apps-log-preview {
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-stroke);
+  background: var(--fluent-bg-subtle);
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--fluent-text-primary);
+}
+
+.apps-log-preview--empty {
+  color: var(--fluent-text-secondary);
+  font-style: italic;
+}
+
+.apps-log-preview-foot {
+  margin: 0.45rem 0 0;
 }
 
 .row {

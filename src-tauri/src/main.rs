@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod oclive_env;
+mod release_download;
 mod role_pack;
 
 use serde::{Deserialize, Serialize};
@@ -10,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
@@ -128,8 +129,12 @@ fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app_config_dir(app)?.join("launcher-config.json"))
 }
 
-fn announcements_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+fn maintainer_announcements_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app_config_dir(app)?.join("announcements.md"))
+}
+
+fn creator_announcements_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_config_dir(app)?.join("creator-announcements.md"))
 }
 
 fn ensure_parent_dir(path: &Path) -> Result<(), String> {
@@ -172,19 +177,133 @@ fn save_config(app: tauri::AppHandle, config: LauncherConfig) -> Result<(), Stri
 }
 
 #[tauri::command]
-fn load_announcements(app: tauri::AppHandle) -> Result<String, String> {
-    let path = announcements_path(&app)?;
+fn load_maintainer_announcements(app: tauri::AppHandle) -> Result<String, String> {
+    let path = maintainer_announcements_path(&app)?;
     if !path.exists() {
-        return Ok("# 公告\n\n在这里写面向创作者的通知（支持 Markdown 显示为纯文本）。\n".into());
+        return Ok("# 维护者公告\n\n在这里写维护者面向所有用户的公告（支持 Markdown 纯文本展示）。\n".into());
     }
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn save_announcements(app: tauri::AppHandle, text: String) -> Result<(), String> {
-    let path = announcements_path(&app)?;
+fn save_maintainer_announcements(app: tauri::AppHandle, text: String) -> Result<(), String> {
+    let path = maintainer_announcements_path(&app)?;
     ensure_parent_dir(&path)?;
     std::fs::write(&path, text.as_bytes()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn load_creator_announcements(app: tauri::AppHandle) -> Result<String, String> {
+    let path = creator_announcements_path(&app)?;
+    if !path.exists() {
+        return Ok("# 创作者公告\n\n在这里写创作者想对用户说的话（支持 Markdown 纯文本展示）。\n".into());
+    }
+    std::fs::read_to_string(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_creator_announcements(app: tauri::AppHandle, text: String) -> Result<(), String> {
+    let path = creator_announcements_path(&app)?;
+    ensure_parent_dir(&path)?;
+    std::fs::write(&path, text.as_bytes()).map_err(|e| e.to_string())
+}
+
+fn creator_echo_messages_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_config_dir(app)?.join("creator-echo-messages.json"))
+}
+
+fn creator_echo_state_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_config_dir(app)?.join("creator-echo-state.json"))
+}
+
+const CREATOR_ECHO_MAX_CHARS: usize = 160;
+const CREATOR_ECHO_MAX_ENTRIES: usize = 500;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreatorEchoMessage {
+    text: String,
+    created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct CreatorEchoState {
+    #[serde(default)]
+    has_submitted: bool,
+}
+
+fn load_creator_echo_messages_inner(app: &tauri::AppHandle) -> Result<Vec<CreatorEchoMessage>, String> {
+    let path = creator_echo_messages_path(app)?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let s = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    Ok(serde_json::from_str(&s).unwrap_or_default())
+}
+
+fn load_creator_echo_state_inner(app: &tauri::AppHandle) -> Result<CreatorEchoState, String> {
+    let path = creator_echo_state_path(app)?;
+    if !path.exists() {
+        return Ok(CreatorEchoState::default());
+    }
+    let s = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    Ok(serde_json::from_str(&s).unwrap_or_default())
+}
+
+#[tauri::command]
+fn load_creator_echo_messages(app: tauri::AppHandle) -> Result<Vec<CreatorEchoMessage>, String> {
+    load_creator_echo_messages_inner(&app)
+}
+
+#[tauri::command]
+fn load_creator_echo_state(app: tauri::AppHandle) -> Result<CreatorEchoState, String> {
+    load_creator_echo_state_inner(&app)
+}
+
+#[tauri::command]
+fn submit_creator_echo(app: tauri::AppHandle, text: String) -> Result<(), String> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Err("寄语不能为空".into());
+    }
+    if text.chars().count() > CREATOR_ECHO_MAX_CHARS {
+        return Err(format!("寄语请在 {} 字以内", CREATOR_ECHO_MAX_CHARS));
+    }
+    if text.contains('\n') || text.contains('\r') {
+        return Err("请写成一句话，不要换行".into());
+    }
+
+    let state_path = creator_echo_state_path(&app)?;
+    let mut state = load_creator_echo_state_inner(&app)?;
+    if state.has_submitted {
+        return Err("本机已留过一句创作者寄语（每人仅限一次）".into());
+    }
+
+    let mut messages = load_creator_echo_messages_inner(&app)?;
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_millis() as i64;
+    messages.push(CreatorEchoMessage {
+        text: text.to_string(),
+        created_at: ts,
+    });
+    if messages.len() > CREATOR_ECHO_MAX_ENTRIES {
+        let drop_n = messages.len() - CREATOR_ECHO_MAX_ENTRIES;
+        messages.drain(0..drop_n);
+    }
+
+    let msg_path = creator_echo_messages_path(&app)?;
+    ensure_parent_dir(&msg_path)?;
+    ensure_parent_dir(&state_path)?;
+    let msg_json = serde_json::to_string_pretty(&messages).map_err(|e| e.to_string())?;
+    std::fs::write(&msg_path, msg_json).map_err(|e| e.to_string())?;
+
+    state.has_submitted = true;
+    let state_json = serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?;
+    std::fs::write(&state_path, state_json).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -510,6 +629,7 @@ fn ollama_pull_model(app: tauri::AppHandle, model: String) -> Result<(), String>
         );
         let mut cmd = Command::new("ollama");
         cmd.args(["pull", &model]);
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         #[cfg(windows)]
@@ -575,6 +695,7 @@ fn install_ollama_via_winget(app: tauri::AppHandle) -> Result<(), String> {
                 "--- 开始 winget install -e --id Ollama.Ollama（若弹出 UAC 或安装向导请按提示操作）---",
             );
             let mut cmd = Command::new("cmd");
+            cmd.stdin(Stdio::null());
             cmd.args([
                 "/C",
                 "winget",
@@ -912,6 +1033,7 @@ fn spawn_managed_app(
         if kind == "oclive" {
             oclive_env::apply_oclive_process_env(&mut cmd, &config)?;
         }
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         #[cfg(windows)]
@@ -935,6 +1057,7 @@ fn spawn_managed_app(
         if kind == "oclive" {
             oclive_env::apply_oclive_process_env(&mut cmd, &config)?;
         }
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
         #[cfg(windows)]
@@ -965,7 +1088,7 @@ fn spawn_managed_app(
             _ => "oclive",
         },
         "out",
-        "--- 进程已启动（无单独终端窗口，日志见下方）---",
+        "--- 已启动：输出在启动器左侧「运行日志」里查看；本启动器已隐藏命令行窗口（Windows）。npm/子工具若再弹出窗口为其自身行为。---",
     );
 
     Ok(())
@@ -994,12 +1117,19 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             load_config,
             save_config,
-            load_announcements,
-            save_announcements,
+            load_maintainer_announcements,
+            save_maintainer_announcements,
+            load_creator_announcements,
+            save_creator_announcements,
+            load_creator_echo_messages,
+            load_creator_echo_state,
+            submit_creator_echo,
             pick_folder,
             pick_exe,
             read_package_version,
             fetch_github_release,
+            release_download::gh_latest_release_assets,
+            release_download::gh_download_release_asset,
             open_url,
             diagnose_environment,
             reset_config_to_default,
