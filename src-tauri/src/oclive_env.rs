@@ -10,7 +10,10 @@ const LLM_OLLAMA: &str = "ollama";
 const LLM_REMOTE: &str = "remote";
 
 /// 配置 oclive 所需的 roles 目录与 LLM 相关变量（启动 oclive 时唯一入口，避免在 `spawn` 处分叉重复）。
-pub(crate) fn apply_oclive_process_env(cmd: &mut Command, config: &LauncherConfig) -> Result<(), String> {
+pub(crate) fn apply_oclive_process_env(
+    cmd: &mut Command,
+    config: &LauncherConfig,
+) -> Result<(), String> {
     apply_roles_dir(cmd, config)?;
     apply_llm_env(cmd, config)?;
     Ok(())
@@ -23,10 +26,7 @@ fn apply_roles_dir(cmd: &mut Command, config: &LauncherConfig) -> Result<(), Str
     }
     let p = PathBuf::from(t);
     if !p.is_dir() {
-        return Err(format!(
-            "角色包根目录无效（须为已存在的文件夹）：{}",
-            t
-        ));
+        return Err(format!("角色包根目录无效（须为已存在的文件夹）：{}", t));
     }
     let abs = std::fs::canonicalize(&p).unwrap_or(p);
     cmd.env("OCLIVE_ROLES_DIR", abs);

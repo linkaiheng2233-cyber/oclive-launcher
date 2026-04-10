@@ -1703,7 +1703,7 @@ onUnmounted(() => {
           <div class="section-title-row section-title-row--launch">
             <h2>角色包编写器</h2>
             <HelpHint
-              text="用来写人设、世界观、导出 zip。一般用浏览器打开官网就够；只有要改源码时才选下面两种。"
+              text="用来写包内核心性格档案与世界观、导出 zip；运行时的可变性格档案由 oclive 内模型维护，此处不可编辑。一般用浏览器打开官网就够；要改源码再选下面两种。"
             />
           </div>
 

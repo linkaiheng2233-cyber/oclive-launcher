@@ -12,6 +12,7 @@
 
 - 启动器用于统一配置 **oclive 运行时**、**角色包编写器** 路径，并汇总子进程日志。
 - 新手入门页提供 **开发者公告**（本文件）与 **创作者公告**（角色包内 `creator_message.txt`，由编写器导出）。
+- **性格档案**：包内 **核心性格档案**在编写器编辑；**可变性格档案**（若包启用 `profile` 人格来源）仅在运行时数据库中由模型维护——见 oclivenewnew [personality-archive-notes.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/docs/personality-archive-notes.md)。
 - 更多说明见仓库根目录 [README.md](../../README.md)。
 
 ## 使用提示

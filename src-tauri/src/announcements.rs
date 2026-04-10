@@ -73,7 +73,9 @@ pub fn fetch_remote_announcement_text(url: String) -> Result<String, String> {
 pub fn load_creator_announcements(app: tauri::AppHandle) -> Result<String, String> {
     let path = legacy_creator_sticky_path(&app)?;
     if !path.exists() {
-        return Ok("# 创作者公告\n\n在这里写创作者想对用户说的话（支持 Markdown 纯文本展示）。\n".into());
+        return Ok(
+            "# 创作者公告\n\n在这里写创作者想对用户说的话（支持 Markdown 纯文本展示）。\n".into(),
+        );
     }
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }

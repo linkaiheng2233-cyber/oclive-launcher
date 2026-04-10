@@ -113,7 +113,11 @@ pub fn read_role_creator_message_lines(
 
 /// 写入 `roles/{role_id}/creator_message.txt`（单行）；目录须已存在。
 #[tauri::command]
-pub fn write_role_creator_message(roles_root: String, role_id: String, text: String) -> Result<(), String> {
+pub fn write_role_creator_message(
+    roles_root: String,
+    role_id: String,
+    text: String,
+) -> Result<(), String> {
     validate_roles_subdir_name(&role_id)?;
     let line = normalize_role_creator_message_line(&text)?;
     let root = PathBuf::from(roles_root.trim());

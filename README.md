@@ -15,6 +15,8 @@
 
 **纽带与契约**：三应用只通过磁盘上的 **角色包** 连接；`min_runtime_version`、Remote 环境变量等语义见 oclivenewnew **[PACK_VERSIONING.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/role-pack/PACK_VERSIONING.md)** 与 **[REMOTE_PLUGIN_PROTOCOL.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/plugin-and-architecture/REMOTE_PLUGIN_PROTOCOL.md)**。
 
+**性格档案分工（给创作者与玩家）**：编写器编辑的是包内 **核心性格档案**（`core_personality.txt`）与 **`settings.json` 里的 `evolution`**。若包内 **`personality_source`** 为 **`profile`**，对话后的 **可变性格档案**只在 oclive **运行时本地数据库**中由模型维护，**不能**在 zip 或编写器里手写。七维与两种人格来源的关系见 oclivenewnew **[personality-archive-notes.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/docs/personality-archive-notes.md)**、**[design-axis-evolution.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/docs/design-axis-evolution.md)** 与 **[roles/README_MANIFEST.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/roles/README_MANIFEST.md)**。
+
 本地开发时可将三仓 **同级克隆**（例如 `D:\oclivenewnew`、`D:\oclive-pack-editor`、`D:\oclive-launcher`），在启动器里填写相对路径即可。
 
 ## 新用户：从下载到第一次对话（推荐路径）

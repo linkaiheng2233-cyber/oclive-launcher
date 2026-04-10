@@ -144,8 +144,7 @@ pub fn find_best_exe_under(root: &Path, kind: &str, max_depth: usize) -> Option<
                 q.push_back((p, depth + 1));
                 continue;
             }
-            if p
-                .extension()
+            if p.extension()
                 .and_then(|e| e.to_str())
                 .map(|e| e.eq_ignore_ascii_case("exe"))
                 != Some(true)
@@ -197,13 +196,18 @@ fn validate_github_asset_url(url: &str) -> Result<(), String> {
         || u.starts_with("https://objects.githubusercontent.com/")
         || u.starts_with("https://release-assets.githubusercontent.com/");
     if !ok {
-        return Err("下载地址须为 GitHub Release 资源（github.com / githubusercontent.com）".into());
+        return Err(
+            "下载地址须为 GitHub Release 资源（github.com / githubusercontent.com）".into(),
+        );
     }
     Ok(())
 }
 
 #[tauri::command]
-pub fn gh_latest_release_assets(owner: String, repo: String) -> Result<Vec<GhReleaseAsset>, String> {
+pub fn gh_latest_release_assets(
+    owner: String,
+    repo: String,
+) -> Result<Vec<GhReleaseAsset>, String> {
     let owner = owner.trim();
     let repo = repo.trim();
     if owner.is_empty() || repo.is_empty() {
@@ -317,7 +321,9 @@ pub fn gh_download_release_asset(
         .to_lowercase();
 
     if ext == "zip" {
-        let parent = path.parent().ok_or_else(|| "无法解析保存路径".to_string())?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| "无法解析保存路径".to_string())?;
         let stem = path
             .file_stem()
             .and_then(|s| s.to_str())
@@ -369,6 +375,8 @@ pub fn gh_download_release_asset(
     Ok(GhDownloadResult {
         saved_path: dest_str,
         resolved_exe: None,
-        hint: Some("已保存文件；若这不是可直接运行的 exe，请自行安装或解压后再浏览选择主程序。".into()),
+        hint: Some(
+            "已保存文件；若这不是可直接运行的 exe，请自行安装或解压后再浏览选择主程序。".into(),
+        ),
     })
 }

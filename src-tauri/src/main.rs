@@ -7,15 +7,15 @@ mod role_creator_message;
 mod role_pack;
 
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
 use std::io::{BufRead, BufReader};
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
+use tauri::Manager;
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
@@ -227,7 +227,10 @@ fn fetch_github_release(owner: String, repo: String) -> Result<ReleaseInfo, Stri
         .map_err(|e| e.to_string())?;
     let resp = client.get(&url).send().map_err(|e| e.to_string())?;
     if !resp.status().is_success() {
-        return Err(format!("GitHub 返回 {}（仓库可能为私有或尚无 Release）", resp.status()));
+        return Err(format!(
+            "GitHub 返回 {}（仓库可能为私有或尚无 Release）",
+            resp.status()
+        ));
     }
     let v: serde_json::Value = resp.json().map_err(|e| e.to_string())?;
     Ok(ReleaseInfo {
@@ -319,7 +322,7 @@ fn roles_dir_looks_populated(root: &Path) -> bool {
     if !root.is_dir() {
         return false;
     }
-    std::fs::read_dir(root).ok().map_or(false, |rd| {
+    std::fs::read_dir(root).ok().is_some_and(|rd| {
         rd.flatten().any(|e| {
             let p = e.path();
             p.is_dir() && p.join("manifest.json").is_file()
@@ -457,7 +460,11 @@ fn ollama_list_local_models() -> Result<Vec<String>, String> {
         .ok_or_else(|| "响应中无 models".to_string())?;
     let mut names: Vec<String> = models
         .iter()
-        .filter_map(|m| m.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+        .filter_map(|m| {
+            m.get("name")
+                .and_then(|n| n.as_str())
+                .map(|s| s.to_string())
+        })
         .collect();
     names.sort();
     names.dedup();
@@ -584,12 +591,7 @@ fn install_ollama_via_winget(app: tauri::AppHandle) -> Result<(), String> {
             let child = match cmd.spawn() {
                 Ok(c) => c,
                 Err(e) => {
-                    emit_log(
-                        &app2,
-                        "winget",
-                        "err",
-                        &format!("启动 winget 失败：{}", e),
-                    );
+                    emit_log(&app2, "winget", "err", &format!("启动 winget 失败：{}", e));
                     return;
                 }
             };
@@ -660,7 +662,8 @@ fn launch_bundled_ollama_installer(app: tauri::AppHandle) -> Result<(), String> 
         })?;
         let mut cmd = Command::new(&p);
         // 故意不使用 CREATE_NO_WINDOW，以便显示安装界面
-        cmd.spawn().map_err(|e| format!("无法启动安装程序：{}", e))?;
+        cmd.spawn()
+            .map_err(|e| format!("无法启动安装程序：{}", e))?;
         emit_log(
             &app,
             "bundled-ollama",
@@ -776,24 +779,30 @@ fn emit_log(app: &tauri::AppHandle, app_id: &str, stream: &str, line: &str) {
 }
 
 /// 将子进程 stdout/stderr 写入 launcher-log，并等待其结束（用于 `ollama pull` / `winget` 等）。
-fn drain_child_to_log(app: &tauri::AppHandle, app_id: &str, mut child: Child) -> std::io::Result<std::process::ExitStatus> {
-    let stdout = child.stdout.take().ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::Other, "无法读取子进程 stdout")
-    })?;
-    let stderr = child.stderr.take().ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::Other, "无法读取子进程 stderr")
-    })?;
+fn drain_child_to_log(
+    app: &tauri::AppHandle,
+    app_id: &str,
+    mut child: Child,
+) -> std::io::Result<std::process::ExitStatus> {
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| std::io::Error::other("无法读取子进程 stdout"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| std::io::Error::other("无法读取子进程 stderr"))?;
     let app_o = app.clone();
     let aid = app_id.to_string();
     let h1 = thread::spawn(move || {
-        for line in BufReader::new(stdout).lines().flatten() {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             emit_log(&app_o, &aid, "out", &line);
         }
     });
     let app_e = app.clone();
     let aid_e = app_id.to_string();
     let h2 = thread::spawn(move || {
-        for line in BufReader::new(stderr).lines().flatten() {
+        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
             emit_log(&app_e, &aid_e, "err", &line);
         }
     });
@@ -811,44 +820,42 @@ fn pipe_stream<R: std::io::Read + Send + 'static>(
 ) {
     thread::spawn(move || {
         let br = BufReader::new(reader);
-        for line in br.lines().flatten() {
+        for line in br.lines().map_while(Result::ok) {
             emit_log(&app, &app_id, &stream, &line);
         }
     });
 }
 
 fn wait_child(slot: Arc<Mutex<Option<Child>>>, app: tauri::AppHandle, app_id: String) {
-    thread::spawn(move || {
-        loop {
-            thread::sleep(Duration::from_millis(400));
-            let done = {
-                let mut g = match slot.lock() {
-                    Ok(g) => g,
-                    Err(_) => return,
-                };
-                let Some(ref mut child) = *g else {
-                    return;
-                };
-                match child.try_wait() {
-                    Ok(Some(status)) => {
-                        let code = status.code();
-                        *g = None;
-                        Some(code)
-                    }
-                    Ok(None) => None,
-                    Err(_) => {
-                        *g = None;
-                        Some(None)
-                    }
-                }
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(400));
+        let done = {
+            let mut g = match slot.lock() {
+                Ok(g) => g,
+                Err(_) => return,
             };
-            if let Some(code) = done {
-                let _ = app.emit_all(
-                    "launcher-exit",
-                    serde_json::json!({ "app": app_id, "code": code }),
-                );
+            let Some(ref mut child) = *g else {
                 return;
+            };
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let code = status.code();
+                    *g = None;
+                    Some(code)
+                }
+                Ok(None) => None,
+                Err(_) => {
+                    *g = None;
+                    Some(None)
+                }
             }
+        };
+        if let Some(code) = done {
+            let _ = app.emit_all(
+                "launcher-exit",
+                serde_json::json!({ "app": app_id, "code": code }),
+            );
+            return;
         }
     });
 }

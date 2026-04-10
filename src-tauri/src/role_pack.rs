@@ -52,10 +52,7 @@ pub fn extract_role_pack_zip(zip_path: &Path, roles_root: &Path) -> Result<Strin
         }
         let prefix = format!("{}/", role_id);
         if !raw_name.starts_with(&prefix) {
-            return Err(format!(
-                "zip 结构异常：{} 不在 {}/ 下",
-                raw_name, role_id
-            ));
+            return Err(format!("zip 结构异常：{} 不在 {}/ 下", raw_name, role_id));
         }
         let rel = &raw_name[prefix.len()..];
         if rel.contains("..") {
