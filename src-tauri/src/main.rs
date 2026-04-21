@@ -66,6 +66,15 @@ struct LauncherConfig {
     /// 可选：`OCLIVE_REMOTE_LLM_TIMEOUT_MS`（毫秒，正整数）。
     #[serde(default)]
     oclive_remote_llm_timeout_ms: String,
+    /// 可选：`OCLIVE_REMOTE_PLUGIN_URL`（memory/emotion/event/prompt 共用 JSON-RPC 端点）。
+    #[serde(default)]
+    oclive_remote_plugin_url: String,
+    /// 可选：`OCLIVE_REMOTE_PLUGIN_TOKEN`（Bearer）。
+    #[serde(default)]
+    oclive_remote_plugin_token: String,
+    /// 可选：`OCLIVE_REMOTE_PLUGIN_TIMEOUT_MS`（毫秒，正整数）。
+    #[serde(default)]
+    oclive_remote_plugin_timeout_ms: String,
     /// 开发者公告：可选 HTTPS/HTTP 地址，启动器可「拉取最新」覆盖本地 `announcements.md` 缓存。
     #[serde(default)]
     developer_announcements_url: String,
@@ -117,6 +126,9 @@ impl Default for LauncherConfig {
             oclive_remote_llm_url: String::new(),
             oclive_remote_llm_token: String::new(),
             oclive_remote_llm_timeout_ms: String::new(),
+            oclive_remote_plugin_url: String::new(),
+            oclive_remote_plugin_token: String::new(),
+            oclive_remote_plugin_timeout_ms: String::new(),
             developer_announcements_url: String::new(),
         };
         ensure_github_upstream_defaults(&mut s);

@@ -59,6 +59,10 @@ export interface LauncherConfig extends RolePackEchoConfig {
   ocliveRemoteLlmUrl: string
   ocliveRemoteLlmToken: string
   ocliveRemoteLlmTimeoutMs: string
+  /** 可选：注入 OCLIVE_REMOTE_PLUGIN_URL/TOKEN/TIMEOUT_MS（memory/emotion/event/prompt 共用） */
+  ocliveRemotePluginUrl: string
+  ocliveRemotePluginToken: string
+  ocliveRemotePluginTimeoutMs: string
   /** 可选：开发者公告远程正文 URL（http/https），配合「拉取最新」 */
   developerAnnouncementsUrl: string
 }
@@ -122,6 +126,9 @@ const config = ref<LauncherConfig>({
   ocliveRemoteLlmUrl: '',
   ocliveRemoteLlmToken: '',
   ocliveRemoteLlmTimeoutMs: '',
+  ocliveRemotePluginUrl: '',
+  ocliveRemotePluginToken: '',
+  ocliveRemotePluginTimeoutMs: '',
   launcherEchoRoleId: '',
   developerAnnouncementsUrl: '',
 })
@@ -1568,6 +1575,25 @@ onUnmounted(() => {
                   inputmode="numeric"
                 />
               </template>
+              <label>模块侧车地址（可选，memory/emotion/event/prompt 共用）</label>
+              <input
+                v-model="config.ocliveRemotePluginUrl"
+                placeholder="例如 http://127.0.0.1:8765/rpc"
+                autocomplete="off"
+              />
+              <label>模块侧车 Token（可选）</label>
+              <input
+                v-model="config.ocliveRemotePluginToken"
+                type="password"
+                autocomplete="off"
+                placeholder="可选"
+              />
+              <label>模块侧车超时毫秒（可选）</label>
+              <input
+                v-model="config.ocliveRemotePluginTimeoutMs"
+                placeholder="例如 8000"
+                inputmode="numeric"
+              />
             </div>
           </div>
 
