@@ -832,7 +832,7 @@ const releasesOcliveUrl = computed(() => {
   return `https://github.com/${o}/${r}/releases`
 })
 
-/** OCLive 市场站的「版本下载」页；换域名或仓库名时在 .env 里设 VITE_VERSIONS_PAGE_URL */
+/** OCLive 生态站入口（论坛/文档/发布汇总等）；换域名或仓库名时在 .env 里设 VITE_VERSIONS_PAGE_URL */
 const versionsListingPageUrl = computed(() => {
   const u = (import.meta.env.VITE_VERSIONS_PAGE_URL || '').trim()
   if (u) return u
@@ -842,7 +842,7 @@ const versionsListingPageUrl = computed(() => {
 async function openVersionsListingInBrowser() {
   try {
     await invoke('open_url', { url: versionsListingPageUrl.value })
-    statusMsg.value = '已在浏览器打开版本列表页'
+    statusMsg.value = '已在浏览器打开生态站页面'
   } catch (e) {
     statusMsg.value = String(e)
   }
@@ -1139,7 +1139,7 @@ onUnmounted(() => {
             <strong>先把环境备好</strong>：开发用要装 <strong>Node</strong>；电脑本地跑对话大脑要装 <strong>Ollama</strong>。第一次打开启动器会自动帮你测一遍，也可随时去「环境」点「重新检测」。
           </li>
           <li>
-            <strong>下载或克隆软件</strong>：打开 OCLive 市场网站的<strong>版本下载</strong>页可一次看到各软件发布列表；也可点左侧「版本」进本页，用快捷按钮或粘贴 GitHub 网址检查更新。会开发的同学也可以把仓库克隆到本地。
+            <strong>下载或克隆软件</strong>：打开 OCLive 生态站的<strong>发布汇总</strong>页可一次看到各软件发布列表；也可点左侧「版本」进本页，用快捷按钮或粘贴 GitHub 网址检查更新。会开发的同学也可以把仓库克隆到本地。
           </li>
           <li>
             <strong>在左侧「oclive」「编写器」里填路径</strong>：告诉启动器两个软件在哪（网页 / 文件夹 / exe）；在 oclive 页填「角色包根目录」让聊天软件找得到角色（可点「从仓库猜」偷懒）。
@@ -1198,7 +1198,7 @@ onUnmounted(() => {
             <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_QUICK_LINKS" />
           </div>
           <div class="ver-quick-btns">
-            <button type="button" class="btn" @click="openVersionsListingInBrowser">市场站 · 各软件版本列表</button>
+            <button type="button" class="btn" @click="openVersionsListingInBrowser">生态站 · 发布汇总页</button>
             <button type="button" class="btn" @click="openRelease(releasesEditorUrl)">编写器 Releases</button>
             <button type="button" class="btn" @click="openRelease(releasesOcliveUrl)">oclive 运行时 Releases</button>
           </div>
