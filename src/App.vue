@@ -2799,15 +2799,19 @@ input[type='text']:focus {
   font-family: var(--fluent-font);
   box-shadow: var(--fluent-shadow-soft);
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.1s ease;
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out),
+    filter var(--motion-fast) var(--ease-out);
+  will-change: transform;
 }
 
 .btn:hover {
   background: var(--fluent-bg-subtle);
   border-color: var(--fluent-text-secondary);
+  transform: translateY(-1px);
+  box-shadow: var(--fluent-shadow-card);
 }
 
 .btn:focus-visible {
@@ -2819,7 +2823,8 @@ input[type='text']:focus {
 }
 
 .btn:active:not(:disabled) {
-  transform: scale(0.985);
+  transform: translateY(0px) scale(0.985);
+  box-shadow: var(--fluent-shadow-soft);
 }
 
 .btn.primary {
