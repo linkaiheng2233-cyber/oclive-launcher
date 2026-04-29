@@ -6,6 +6,7 @@ import HelpHint from './components/HelpHint.vue'
 import CreatorAnnouncementsSection from './announcements/CreatorAnnouncementsSection.vue'
 import DeveloperAnnouncementsSection from './announcements/DeveloperAnnouncementsSection.vue'
 import { useDeveloperAnnouncements } from './announcements/useDeveloperAnnouncements'
+import { useLauncherBootstrap } from './composables/useLauncherBootstrap'
 import { useLauncherUiScale } from './composables/useLauncherUiScale'
 import { useRolePackEcho } from './composables/useRolePackEcho'
 import type { RolePackEchoConfig } from './lib/rolePackCreatorMessage'
@@ -330,20 +331,19 @@ async function refreshBundledOllamaInfo() {
   }
 }
 
-async function loadAll() {
-  try {
-    const c = await invoke<LauncherConfig>('load_config')
-    config.value = { ...config.value, ...c }
-    await refreshRolePackEchoUi()
-    await reloadDevAnnounceFromDisk()
-    await refreshLocalVersions()
-    await refreshWingetAvailability()
-    await refreshBundledOllamaInfo()
-    statusMsg.value = '已加载配置'
-  } catch (e) {
-    statusMsg.value = String(e)
-  }
-}
+const { loadAll, scheduleFirstLaunchDiagnose } = useLauncherBootstrap({
+  config,
+  setStatus: (msg) => {
+    statusMsg.value = msg
+  },
+  loadConfig: () => invoke<LauncherConfig>('load_config'),
+  refreshRolePackEchoUi,
+  reloadDevAnnounceFromDisk,
+  refreshLocalVersions,
+  refreshWingetAvailability,
+  refreshBundledOllamaInfo,
+  runEnvironmentDiagnose,
+})
 
 async function saveConfig() {
   try {
@@ -800,24 +800,6 @@ async function runEnvironmentDiagnose(opts?: { quiet?: boolean }) {
   }
 }
 
-const STORAGE_FIRST_AUTO_ENV = 'oclive-launcher-first-auto-env-v1'
-
-async function maybeFirstLaunchAutoDiagnose() {
-  try {
-    if (localStorage.getItem(STORAGE_FIRST_AUTO_ENV)) return
-    await runEnvironmentDiagnose({ quiet: true })
-    localStorage.setItem(STORAGE_FIRST_AUTO_ENV, '1')
-    statusMsg.value =
-      '欢迎！已为你自动检测环境，详见「环境」页。需要时可再点「重新检测」。'
-  } catch {
-    try {
-      await runEnvironmentDiagnose({ quiet: true })
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
 const releasesEditorUrl = computed(() => {
   const o = config.value.githubEditorOwner.trim()
   const r = config.value.githubEditorRepo.trim()
@@ -1007,7 +989,7 @@ onMounted(async () => {
   themeMediaCleanup = () => mq.removeEventListener('change', onScheme)
 
   await loadAll()
-  await maybeFirstLaunchAutoDiagnose()
+  scheduleFirstLaunchDiagnose()
   unlistenLog = await listen<{ app: string; stream: string; line: string }>(
     'launcher-log',
     (e) => {
