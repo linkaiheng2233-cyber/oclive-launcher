@@ -354,10 +354,15 @@ fn dir_has_package_json(root: &str) -> (bool, bool) {
 /// 检测 Node / npm / Ollama 与当前填写的项目路径（便于「傻瓜化」排障，对标一键向导思路）。
 #[tauri::command]
 fn diagnose_environment(config: LauncherConfig) -> EnvDiagnostics {
-    let node = try_cmd_version("node", &["--version"]);
-    let npm = try_cmd_version("npm", &["--version"]);
-    let ollama_v = try_cmd_version("ollama", &["--version"]);
-    let ollama_api = ollama_api_reachable();
+    let node_h = std::thread::spawn(|| try_cmd_version("node", &["--version"]));
+    let npm_h = std::thread::spawn(|| try_cmd_version("npm", &["--version"]));
+    let ollama_v_h = std::thread::spawn(|| try_cmd_version("ollama", &["--version"]));
+    let ollama_api_h = std::thread::spawn(ollama_api_reachable);
+
+    let node = node_h.join().unwrap_or(None);
+    let npm = npm_h.join().unwrap_or(None);
+    let ollama_v = ollama_v_h.join().unwrap_or(None);
+    let ollama_api = ollama_api_h.join().unwrap_or(false);
     let (ed_ok, ed_pkg) = if config.editor_mode.trim() == "web" {
         (true, true)
     } else if config.editor_project_root.trim().is_empty() {
