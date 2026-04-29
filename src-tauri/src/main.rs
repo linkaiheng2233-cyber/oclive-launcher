@@ -295,24 +295,37 @@ struct EnvDiagnostics {
 }
 
 fn try_cmd_version(program: &str, args: &[&str]) -> Option<String> {
-    let mut c = Command::new(program);
-    c.args(args);
-    c.stdout(Stdio::piped());
-    c.stderr(Stdio::piped());
-    #[cfg(windows)]
-    c.creation_flags(CREATE_NO_WINDOW);
-    let out = c.output().ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let a = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    let b = String::from_utf8_lossy(&out.stderr).trim().to_string();
-    let merged = if !a.is_empty() { a } else { b };
-    if merged.is_empty() {
-        None
-    } else {
-        Some(merged)
-    }
+    try_cmd_version_timeout(program, args, Duration::from_millis(1500))
+}
+
+fn try_cmd_version_timeout(program: &str, args: &[&str], timeout: Duration) -> Option<String> {
+    let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
+    let program = program.to_string();
+    let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+    std::thread::spawn(move || {
+        let mut c = Command::new(program);
+        c.args(args);
+        c.stdout(Stdio::piped());
+        c.stderr(Stdio::piped());
+        #[cfg(windows)]
+        c.creation_flags(CREATE_NO_WINDOW);
+        let out = match c.output() {
+            Ok(o) => o,
+            Err(_) => {
+                let _ = tx.send(None);
+                return;
+            }
+        };
+        if !out.status.success() {
+            let _ = tx.send(None);
+            return;
+        }
+        let a = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let b = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        let merged = if !a.is_empty() { a } else { b };
+        let _ = tx.send(if merged.is_empty() { None } else { Some(merged) });
+    });
+    rx.recv_timeout(timeout).ok().flatten()
 }
 
 fn ollama_api_reachable() -> bool {
@@ -354,15 +367,10 @@ fn dir_has_package_json(root: &str) -> (bool, bool) {
 /// 检测 Node / npm / Ollama 与当前填写的项目路径（便于「傻瓜化」排障，对标一键向导思路）。
 #[tauri::command]
 fn diagnose_environment(config: LauncherConfig) -> EnvDiagnostics {
-    let node_h = std::thread::spawn(|| try_cmd_version("node", &["--version"]));
-    let npm_h = std::thread::spawn(|| try_cmd_version("npm", &["--version"]));
-    let ollama_v_h = std::thread::spawn(|| try_cmd_version("ollama", &["--version"]));
-    let ollama_api_h = std::thread::spawn(ollama_api_reachable);
-
-    let node = node_h.join().unwrap_or(None);
-    let npm = npm_h.join().unwrap_or(None);
-    let ollama_v = ollama_v_h.join().unwrap_or(None);
-    let ollama_api = ollama_api_h.join().unwrap_or(false);
+    let node = try_cmd_version("node", &["--version"]);
+    let npm = try_cmd_version("npm", &["--version"]);
+    let ollama_v = try_cmd_version("ollama", &["--version"]);
+    let ollama_api = ollama_api_reachable();
     let (ed_ok, ed_pkg) = if config.editor_mode.trim() == "web" {
         (true, true)
     } else if config.editor_project_root.trim().is_empty() {
