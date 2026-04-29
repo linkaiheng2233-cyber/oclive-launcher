@@ -40,11 +40,7 @@ export function useLauncherBootstrap<C>(deps: BootstrapDeps<C>) {
       localStorage.setItem(STORAGE_FIRST_AUTO_ENV, '1')
       deps.setStatus('欢迎！已为你自动检测环境，详见「环境」页。需要时可再点「重新检测」。')
     } catch {
-      try {
-        await deps.runEnvironmentDiagnose({ quiet: true })
-      } catch {
-        /* ignore */
-      }
+      /* ignore */
     }
   }
 

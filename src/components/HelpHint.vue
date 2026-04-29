@@ -8,6 +8,36 @@ const props = defineProps<{
   paragraphs?: readonly string[]
 }>()
 
+type HelpHintInstance = {
+  el: () => HTMLElement | null
+  isOpen: () => boolean
+  close: () => void
+}
+
+const instances = new Set<HelpHintInstance>()
+let docListenersInstalled = false
+let docListenersRefCount = 0
+
+function installDocListenersOnce() {
+  if (docListenersInstalled) return
+  docListenersInstalled = true
+
+  document.addEventListener('click', (e) => {
+    const target = e.target as Node
+    for (const inst of instances) {
+      if (!inst.isOpen()) continue
+      const el = inst.el()
+      if (el && !el.contains(target)) inst.close()
+    }
+  })
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return
+    for (const inst of instances) {
+      if (inst.isOpen()) inst.close()
+    }
+  })
+}
+
 const segments = computed(() => {
   if (props.paragraphs?.length) {
     return props.paragraphs.map((s) => s.trim()).filter(Boolean)
@@ -28,23 +58,27 @@ function toggle(e: Event) {
   open.value = !open.value
 }
 
-function onDocClick(e: MouseEvent) {
-  if (!open.value) return
-  const el = root.value
-  if (el && !el.contains(e.target as Node)) open.value = false
-}
-
-function onDocKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') open.value = false
-}
-
 onMounted(() => {
-  document.addEventListener('click', onDocClick)
-  document.addEventListener('keydown', onDocKeydown)
+  installDocListenersOnce()
+  docListenersRefCount += 1
+  const inst: HelpHintInstance = {
+    el: () => root.value,
+    isOpen: () => open.value === true,
+    close: () => {
+      open.value = false
+    },
+  }
+  instances.add(inst)
+  // Ensure this instance is removed even if mounted/unmounted quickly.
+  ;(root as any).__helpHintInst = inst
 })
 onUnmounted(() => {
-  document.removeEventListener('click', onDocClick)
-  document.removeEventListener('keydown', onDocKeydown)
+  docListenersRefCount = Math.max(0, docListenersRefCount - 1)
+  const inst = (root as any).__helpHintInst as HelpHintInstance | undefined
+  if (inst) {
+    instances.delete(inst)
+    delete (root as any).__helpHintInst
+  }
 })
 </script>
 

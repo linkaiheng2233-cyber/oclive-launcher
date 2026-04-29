@@ -972,6 +972,17 @@ function onDocKeydown(e: KeyboardEvent) {
 
 onMounted(async () => {
   document.addEventListener('keydown', onDocKeydown)
+  unlistenLog = await listen<{ app: string; stream: string; line: string }>(
+    'launcher-log',
+    (e) => {
+      const p = e.payload
+      pushLog(p.app, p.stream, p.line)
+    },
+  )
+  unlistenExit = await listen<{ app: string; code: number | null }>('launcher-exit', (e) => {
+    const p = e.payload
+    pushLog(p.app, 'out', `--- 进程已结束 (exit code: ${p.code ?? '?'}) ---`)
+  })
   try {
     const raw = localStorage.getItem(THEME_STORAGE_KEY)
     if (raw === 'light' || raw === 'dark' || raw === 'system') {
@@ -990,17 +1001,6 @@ onMounted(async () => {
 
   await loadAll()
   scheduleFirstLaunchDiagnose()
-  unlistenLog = await listen<{ app: string; stream: string; line: string }>(
-    'launcher-log',
-    (e) => {
-      const p = e.payload
-      pushLog(p.app, p.stream, p.line)
-    },
-  )
-  unlistenExit = await listen<{ app: string; code: number | null }>('launcher-exit', (e) => {
-    const p = e.payload
-    pushLog(p.app, 'out', `--- 进程已结束 (exit code: ${p.code ?? '?'}) ---`)
-  })
 })
 
 onUnmounted(() => {
