@@ -683,7 +683,9 @@ async function pullRecommendedOllamaModel() {
   pullBusy.value = true
   try {
     await invoke('ollama_pull_model', { model: DEFAULT_OLLAMA_MODEL })
-    statusMsg.value = `已开始拉取「${DEFAULT_OLLAMA_MODEL}」，进度见「日志」→ 筛选 ollama。`
+    statusMsg.value = String(
+      t("launcher.status.ollamaPullStarted", { model: DEFAULT_OLLAMA_MODEL }),
+    )
     focusLogsFilter('ollama')
   } catch (e) {
     statusMsg.value = String(e)
@@ -695,13 +697,13 @@ async function pullRecommendedOllamaModel() {
 async function pullSelectedOllamaModel() {
   const model = effectiveInstallModel.value
   if (!model) {
-    statusMsg.value = '请选择或输入要拉取的模型名'
+    statusMsg.value = String(t("launcher.status.ollamaPullModelMissing"))
     return
   }
   pullBusy.value = true
   try {
     await invoke('ollama_pull_model', { model })
-    statusMsg.value = `已开始拉取「${model}」，进度见「日志」→ 筛选 ollama。完成后可点「刷新本机列表」。`
+    statusMsg.value = String(t("launcher.status.ollamaPullStartedWithRefreshHint", { model }))
     focusLogsFilter('ollama')
   } catch (e) {
     statusMsg.value = String(e)
@@ -713,7 +715,7 @@ async function pullSelectedOllamaModel() {
 async function refreshOllamaLocalModelsList() {
   try {
     ollamaLocalModels.value = await invoke<string[]>('ollama_list_local_models')
-    statusMsg.value = '已刷新本机 Ollama 模型列表'
+    statusMsg.value = String(t("launcher.status.ollamaLocalModelsRefreshed"))
   } catch (e) {
     statusMsg.value = String(e)
   }
@@ -723,8 +725,7 @@ async function spawnEditor() {
   try {
     await invoke('spawn_managed_app', { kind: 'editor', config: config.value })
     if (config.value.editorMode === 'web') {
-      statusMsg.value =
-        '已在系统默认浏览器中打开编写器（若没看见页面，请检查任务栏或被拦截的弹窗）'
+      statusMsg.value = String(t("launcher.status.editorOpenedInBrowser"))
     }
   } catch (e) {
     statusMsg.value = String(e)
@@ -770,7 +771,7 @@ async function checkReleases() {
       })
     }
     await refreshLocalVersions()
-    statusMsg.value = '已检查远端版本'
+    statusMsg.value = String(t("launcher.status.remoteVersionsChecked"))
   } catch (e) {
     checkErr.value = String(e)
   }
@@ -793,7 +794,7 @@ async function runEnvironmentDiagnose(opts?: { quiet?: boolean }) {
     })
     await refreshWingetAvailability()
     await refreshBundledOllamaInfo()
-    if (!quiet) statusMsg.value = '环境检测完成'
+    if (!quiet) statusMsg.value = String(t("launcher.status.envDiagnoseDone"))
   } catch (e) {
     envDiagErr.value = String(e)
     envDiag.value = null
@@ -825,7 +826,7 @@ const versionsListingPageUrl = computed(() => {
 async function openVersionsListingInBrowser() {
   try {
     await invoke('open_url', { url: versionsListingPageUrl.value })
-    statusMsg.value = '已在浏览器打开生态站页面'
+    statusMsg.value = String(t("launcher.status.versionsListingOpened"))
   } catch (e) {
     statusMsg.value = String(e)
   }
@@ -849,7 +850,7 @@ async function syncGithubUrlsAndCheckUpdates() {
   if (changed) {
     try {
       await invoke('save_config', { config: config.value })
-      statusMsg.value = '已从粘贴框同步 GitHub 仓库'
+      statusMsg.value = String(t("launcher.status.githubReposSyncedFromPaste"))
     } catch (e) {
       statusMsg.value = String(e)
       return
@@ -861,7 +862,7 @@ async function syncGithubUrlsAndCheckUpdates() {
 async function resetLauncherConfig() {
   if (
     !confirm(
-      '将清空启动器内保存的路径，并恢复默认（含上游 GitHub owner/repo 占位）。是否继续？',
+      String(t("launcher.confirms.resetConfigToDefault")),
     )
   )
     return
@@ -869,7 +870,7 @@ async function resetLauncherConfig() {
     const c = await invoke<LauncherConfig>('reset_config_to_default')
     config.value = { ...config.value, ...c }
     envDiag.value = null
-    statusMsg.value = '已重置为默认配置（若原文件损坏，同目录下可能有 .corrupt.bak 备份）'
+    statusMsg.value = String(t("launcher.status.configResetToDefault"))
     await refreshLocalVersions()
   } catch (e) {
     statusMsg.value = String(e)
@@ -879,7 +880,7 @@ async function resetLauncherConfig() {
 async function openLauncherConfigFolder() {
   try {
     await invoke('open_config_directory')
-    statusMsg.value = '已尝试打开配置目录（含 launcher-config.json）'
+    statusMsg.value = String(t("launcher.status.configDirectoryOpened"))
   } catch (e) {
     statusMsg.value = String(e)
   }
@@ -895,12 +896,12 @@ const navItems: {
   icon: string
   accent?: 'oclive' | 'editor'
 }[] = [
-  { id: 'start', label: '新手', icon: '🚀' },
-  { id: 'version', label: '版本', icon: '📦' },
-  { id: 'launch-oclive', label: 'oclive', icon: '💬', accent: 'oclive' },
-  { id: 'launch-editor', label: '编写器', icon: '✏️', accent: 'editor' },
-  { id: 'assistant', label: '环境', icon: '🩺' },
-  { id: 'logs', label: '日志', icon: '📋' },
+  { id: 'start', label: String(t("launcher.nav.start")), icon: '🚀' },
+  { id: 'version', label: String(t("launcher.nav.version")), icon: '📦' },
+  { id: 'launch-oclive', label: String(t("launcher.nav.launchOclive")), icon: '💬', accent: 'oclive' },
+  { id: 'launch-editor', label: String(t("launcher.nav.launchEditor")), icon: '✏️', accent: 'editor' },
+  { id: 'assistant', label: String(t("launcher.nav.assistant")), icon: '🩺' },
+  { id: 'logs', label: String(t("launcher.nav.logs")), icon: '📋' },
 ]
 
 const THEME_STORAGE_KEY = 'oclive-launcher-theme'

@@ -49,6 +49,12 @@ export default {
     },
     nav: {
       mobileAria: "Switch sections",
+      start: "Getting started",
+      version: "Versions",
+      launchOclive: "Launch oclive",
+      launchEditor: "Role Pack Editor",
+      assistant: "Environment",
+      logs: "Logs",
     },
     startGuide: {
       title: "Just follow these steps",
@@ -116,12 +122,28 @@ export default {
         "Launched the bundled installer. After it completes, click “Re-check” on the Environment page.",
       wingetInstallStarted:
         "Started winget installation for Ollama. Check progress in Logs (filter: winget). When done, click “Re-check”.",
+      ollamaPullStarted: 'Started pulling "{model}". Check progress in Logs (filter: ollama).',
+      ollamaPullStartedWithRefreshHint:
+        'Started pulling "{model}". Check progress in Logs (filter: ollama). When done, click “Refresh local list”.',
+      ollamaPullModelMissing: "Please choose or enter a model name to pull.",
+      ollamaLocalModelsRefreshed: "Refreshed local Ollama model list.",
+      editorOpenedInBrowser:
+        "Opened the editor in your default browser (if you don’t see the page, check your taskbar or blocked popups).",
+      remoteVersionsChecked: "Checked remote versions.",
+      envDiagnoseDone: "Environment check completed.",
+      versionsListingOpened: "Opened the ecosystem site in browser.",
+      githubReposSyncedFromPaste: "Synced GitHub repos from the paste fields.",
+      configResetToDefault:
+        "Reset to default config (if the previous file was corrupted, there may be a .corrupt.bak backup in the same directory).",
+      configDirectoryOpened: "Attempted to open the config directory (contains launcher-config.json).",
     },
     confirms: {
       launchBundledOllamaInstaller:
         "This will start the bundled Ollama installer (Windows). If Ollama is already installed, the wizard may offer repair/uninstall. Continue?",
       installOllamaViaWinget:
         "This will install “Ollama.Ollama” via Windows package manager winget. It may trigger UAC/installer prompts and requires network download. Continue?",
+      resetConfigToDefault:
+        "This will clear all saved paths in the launcher and restore defaults (including upstream GitHub owner/repo placeholders). Continue?",
     },
   },
   creatorAnnouncements: {

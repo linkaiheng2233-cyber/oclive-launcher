@@ -48,6 +48,12 @@ export default {
     },
     nav: {
       mobileAria: "栏目切换",
+      start: "新手",
+      version: "版本",
+      launchOclive: "oclive",
+      launchEditor: "编写器",
+      assistant: "环境",
+      logs: "日志",
     },
     startGuide: {
       title: "新手照着做就行",
@@ -109,12 +115,25 @@ export default {
       bundledOllamaInstallerLaunched: "已启动附带安装程序；完成后请在「环境」页点「重新检测」。",
       wingetInstallStarted:
         "已开始 winget 安装 Ollama，进度见「日志」→ 筛选 winget。完成后请点「重新检测」。",
+      ollamaPullStarted: "已开始拉取「{model}」，进度见「日志」→ 筛选 ollama。",
+      ollamaPullStartedWithRefreshHint:
+        "已开始拉取「{model}」，进度见「日志」→ 筛选 ollama。完成后可点「刷新本机列表」。",
+      ollamaPullModelMissing: "请选择或输入要拉取的模型名",
+      ollamaLocalModelsRefreshed: "已刷新本机 Ollama 模型列表",
+      editorOpenedInBrowser: "已在系统默认浏览器中打开编写器（若没看见页面，请检查任务栏或被拦截的弹窗）",
+      remoteVersionsChecked: "已检查远端版本",
+      envDiagnoseDone: "环境检测完成",
+      versionsListingOpened: "已在浏览器打开生态站页面",
+      githubReposSyncedFromPaste: "已从粘贴框同步 GitHub 仓库",
+      configResetToDefault: "已重置为默认配置（若原文件损坏，同目录下可能有 .corrupt.bak 备份）",
+      configDirectoryOpened: "已尝试打开配置目录（含 launcher-config.json）",
     },
     confirms: {
       launchBundledOllamaInstaller:
         "将启动附带的 Ollama 安装程序（Windows）。若已安装过 Ollama，向导可能提示修复或卸载。是否继续？",
       installOllamaViaWinget:
         "将通过 Windows 官方包管理器 winget 安装「Ollama.Ollama」。可能弹出 UAC 或安装向导，且需网络下载。是否继续？",
+      resetConfigToDefault: "将清空启动器内保存的路径，并恢复默认（含上游 GitHub owner/repo 占位）。是否继续？",
     },
   },
   creatorAnnouncements: {
