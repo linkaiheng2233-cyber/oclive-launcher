@@ -1110,7 +1110,7 @@ onUnmounted(() => {
         </div>
       </header>
 
-      <nav class="mobile-nav" aria-label="栏目切换">
+      <nav class="mobile-nav" :aria-label="String(t('launcher.nav.mobileAria'))">
         <button
           v-for="item in navItems"
           :key="'m-' + item.id"
@@ -1132,13 +1132,8 @@ onUnmounted(() => {
           <h2>{{ t("launcher.startGuide.title") }}</h2>
           <HelpHint :paragraphs="LAUNCHER_HINT_START_GUIDE" />
         </div>
-        <p class="hint guide-lead">
-          你可以只聊天、只做角色，或两个都来——下面是一条<strong>最省事</strong>的路线：<strong>写设定 → 放进角色文件夹 → 开 oclive 聊天</strong>。看版本号、对 GitHub 发版请点左侧「版本」。
-        </p>
-        <p class="hint">
-          三个东西分工不同：<strong>本程序</strong>负责一键打开；<strong>编写器</strong>用来写内容；<strong>oclive</strong>是聊天窗口。角色文件都放在磁盘上的
-          <code>roles</code> 一类文件夹里（启动器里叫「角色包根目录」）。
-        </p>
+        <p class="hint guide-lead">{{ t("launcher.startGuide.lead") }}</p>
+        <p class="hint">{{ t("launcher.startGuide.desc") }}</p>
         <ol class="guide-steps">
           <li>
             <strong>先把环境备好</strong>：开发用要装 <strong>Node</strong>；电脑本地跑对话大脑要装 <strong>Ollama</strong>。第一次打开启动器会自动帮你测一遍，也可随时去「环境」点「重新检测」。
@@ -1194,9 +1189,7 @@ onUnmounted(() => {
           <h2>{{ t("launcher.versionPage.title") }}</h2>
           <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_PAGE" />
         </div>
-        <p class="hint ver-page-lead">
-          大白话：这一页就是帮你对照「电脑上装的版本」和「GitHub 上最新发的一不一样」，再顺手打开市场汇总页或某个仓库的下载页。具体名词点各小节旁的<strong>小问号</strong>看详细说明。
-        </p>
+        <p class="hint ver-page-lead">{{ t("launcher.versionPage.lead") }}</p>
         <div class="ver-quick-dl">
           <div class="label-with-hint ver-quick-head">
             <span class="ver-subtle-label">{{ t("launcher.versionPage.quickLinks") }}</span>
@@ -1214,18 +1207,18 @@ onUnmounted(() => {
 
         <div class="gh-paste-block">
           <div class="label-with-hint">
-            <label>粘贴编写器仓库网址（可选）</label>
+            <label>{{ t("launcher.versionPage.editorRepoPaste.label") }}</label>
             <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
           </div>
           <div class="row">
             <input
               v-model="editorGhUrlPaste"
               class="paste-url-input"
-              placeholder="例如 https://github.com/你的用户名/oclive-pack-editor"
+              :placeholder="String(t('launcher.versionPage.editorRepoPaste.placeholder'))"
               autocomplete="off"
               @keydown.enter.prevent="applyEditorRepoFromPastedUrl"
             />
-            <button type="button" class="btn" @click="applyEditorRepoFromPastedUrl">填入 owner / repo</button>
+            <button type="button" class="btn" @click="applyEditorRepoFromPastedUrl">{{ t("launcher.versionPage.editorRepoPaste.apply") }}</button>
           </div>
         </div>
 
@@ -1249,10 +1242,10 @@ onUnmounted(() => {
           <strong>{{ editorLocalVer ?? '—' }}</strong>
         </div>
         <div class="ver-line" v-if="editorRemote">
-          <span>网上最新</span>
+          <span>{{ t("launcher.versionPage.remoteVersion") }}</span>
           <strong>{{ editorRemote.tagName }}</strong>
           <button type="button" class="btn tiny" @click="openRelease(editorRemote.htmlUrl)">
-            打开发布页
+            {{ t("launcher.versionPage.openRelease") }}
           </button>
         </div>
 

@@ -47,8 +47,15 @@ export default {
         "Check whether Node, Ollama, and folder paths are correct; follow prompts to install or fix paths.",
       other: "All background logs are shown here. When something breaks, check here first.",
     },
+    nav: {
+      mobileAria: "Switch sections",
+    },
     startGuide: {
       title: "Just follow these steps",
+      lead:
+        "You can just chat, just create roles, or do both. Here’s the easiest route: write settings → put them into the role folder → open oclive and chat. For versions and GitHub releases, go to “Versions” on the left.",
+      desc:
+        "These three tools have different jobs: this launcher opens things with one click; the editor writes content; oclive is the chat window. Role files live in a disk folder like roles (called “Role packs root directory” in the launcher).",
       links: {
         ollamaDownload: "Ollama download",
         ollamaLibrary: "Ollama model library",
@@ -58,12 +65,21 @@ export default {
     },
     versionPage: {
       title: "Versions & downloads",
+      lead:
+        "Plain English: this page compares the version you have installed with the latest release on GitHub, then helps you quickly open overview pages or specific release downloads. Click the small “?” next to each section for details.",
       quickLinks: "Quick links",
       buttons: {
         versionsListing: "Ecosystem site · releases overview",
         editorReleases: "Editor releases",
         ocliveReleases: "oclive runtime releases",
       },
+      editorRepoPaste: {
+        label: "Paste editor repository URL (optional)",
+        placeholder: "e.g. https://github.com/your-name/oclive-pack-editor",
+        apply: "Fill owner / repo",
+      },
+      remoteVersion: "Latest online",
+      openRelease: "Open release page",
     },
   },
   creatorAnnouncements: {

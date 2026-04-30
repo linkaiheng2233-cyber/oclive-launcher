@@ -46,8 +46,15 @@ export default {
       assistant: "看看 Node、Ollama、文件夹路径对不对；不对就按提示装或改路径。",
       other: "软件在后台打印的信息都在这里，出问题先来这里瞄一眼。",
     },
+    nav: {
+      mobileAria: "栏目切换",
+    },
     startGuide: {
       title: "新手照着做就行",
+      lead:
+        "你可以只聊天、只做角色，或两个都来——下面是一条最省事的路线：写设定 → 放进角色文件夹 → 开 oclive 聊天。看版本号、对 GitHub 发版请点左侧「版本」。",
+      desc:
+        "三个东西分工不同：本程序负责一键打开；编写器用来写内容；oclive 是聊天窗口。角色文件都放在磁盘上的 roles 一类文件夹里（启动器里叫「角色包根目录」）。",
       links: {
         ollamaDownload: "Ollama 下载",
         ollamaLibrary: "Ollama 模型库",
@@ -57,12 +64,21 @@ export default {
     },
     versionPage: {
       title: "看版本、去下载",
+      lead:
+        "大白话：这一页就是帮你对照「电脑上装的版本」和「GitHub 上最新发的一不一样」，再顺手打开市场汇总页或某个仓库的下载页。具体名词点各小节旁的小问号看详细说明。",
       quickLinks: "快捷入口",
       buttons: {
         versionsListing: "生态站 · 发布汇总页",
         editorReleases: "编写器 Releases",
         ocliveReleases: "oclive 运行时 Releases",
       },
+      editorRepoPaste: {
+        label: "粘贴编写器仓库网址（可选）",
+        placeholder: "例如 https://github.com/你的用户名/oclive-pack-editor",
+        apply: "填入 owner / repo",
+      },
+      remoteVersion: "网上最新",
+      openRelease: "打开发布页",
     },
   },
   creatorAnnouncements: {
