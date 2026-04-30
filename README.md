@@ -1,6 +1,6 @@
 # oclive 启动器
 
-[![CI](https://github.com/linkaiheng2233-cyber/oclive-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/linkaiheng2233-cyber/oclive-launcher/actions/workflows/ci.yml)
+[![CI](https://github.com/oclive-app/oclive-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/oclive-app/oclive-launcher/actions/workflows/ci.yml)
 
 独立 **桌面启动器**（Tauri 1.x + Vue 3 + TypeScript）：作为 **oclive 工具链的统一入口**，集中管理 **角色包编写器**（`oclive-pack-editor`）与 **oclive 运行时**（例如 `oclivenewnew`）的启动方式，把子进程 **stdout / stderr** 收到本窗口，避免弹出多个控制台；支持 **公告栏**、**GitHub Release 版本检查** 与 **打开发布页**。
 
@@ -10,12 +10,12 @@
 
 | 仓库 | 说明 |
 |------|------|
-| [oclivenewnew](https://github.com/linkaiheng2233-cyber/oclivenewnew) | 运行时、HTTP API、`creator-docs` 与角色契约 |
-| [oclive-pack-editor](https://github.com/linkaiheng2233-cyber/oclive-pack-editor) | 角色包编写器（导出与校验） |
+| [oclivenewnew](https://github.com/oclive-app/oclivenewnew) | 运行时、HTTP API、`creator-docs` 与角色契约 |
+| [oclive-pack-editor](https://github.com/oclive-app/oclive-pack-editor) | 角色包编写器（导出与校验） |
 
-**纽带与契约**：三应用只通过磁盘上的 **角色包** 连接；`min_runtime_version`、Remote 环境变量等语义见 oclivenewnew **[PACK_VERSIONING.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/role-pack/PACK_VERSIONING.md)** 与 **[REMOTE_PLUGIN_PROTOCOL.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/plugin-and-architecture/REMOTE_PLUGIN_PROTOCOL.md)**。
+**纽带与契约**：三应用只通过磁盘上的 **角色包** 连接；`min_runtime_version`、Remote 环境变量等语义见 oclivenewnew **[PACK_VERSIONING.md](https://github.com/oclive-app/oclivenewnew/blob/main/creator-docs/role-pack/PACK_VERSIONING.md)** 与 **[REMOTE_PLUGIN_PROTOCOL.md](https://github.com/oclive-app/oclivenewnew/blob/main/creator-docs/plugin-and-architecture/REMOTE_PLUGIN_PROTOCOL.md)**。
 
-**性格档案分工（给创作者与玩家）**：编写器编辑的是包内 **核心性格档案**（`core_personality.txt`）与 **`settings.json` 里的 `evolution`**。若包内 **`personality_source`** 为 **`profile`**，对话后的 **可变性格档案**只在 oclive **运行时本地数据库**中由模型维护，**不能**在 zip 或编写器里手写。七维与两种人格来源的关系见 oclivenewnew **[personality-archive-notes.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/docs/personality-archive-notes.md)**、**[design-axis-evolution.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/docs/design-axis-evolution.md)** 与 **[roles/README_MANIFEST.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/roles/README_MANIFEST.md)**。
+**性格档案分工（给创作者与玩家）**：编写器编辑的是包内 **核心性格档案**（`core_personality.txt`）与 **`settings.json` 里的 `evolution`**。若包内 **`personality_source`** 为 **`profile`**，对话后的 **可变性格档案**只在 oclive **运行时本地数据库**中由模型维护，**不能**在 zip 或编写器里手写。七维与两种人格来源的关系见 oclivenewnew **[personality-archive-notes.md](https://github.com/oclive-app/oclivenewnew/blob/main/docs/personality-archive-notes.md)**、**[design-axis-evolution.md](https://github.com/oclive-app/oclivenewnew/blob/main/docs/design-axis-evolution.md)** 与 **[roles/README_MANIFEST.md](https://github.com/oclive-app/oclivenewnew/blob/main/roles/README_MANIFEST.md)**。
 
 本地开发时可将三仓 **同级克隆**（例如 `D:\oclivenewnew`、`D:\oclive-pack-editor`、`D:\oclive-launcher`），在启动器里填写相对路径即可。
 
@@ -26,7 +26,7 @@
 | 步骤 | 做什么 |
 |------|--------|
 | 1 | 安装 **Node.js LTS**、**Ollama**（本地对话默认依赖本机模型）。 |
-| 2 | 获取三个应用：克隆或下载 [oclivenewnew](https://github.com/linkaiheng2233-cyber/oclivenewnew)、[oclive-pack-editor](https://github.com/linkaiheng2233-cyber/oclive-pack-editor)、本仓库；或使用各仓库 **Release** 构建的 `.exe`。 |
+| 2 | 获取三个应用：克隆或下载 [oclivenewnew](https://github.com/oclive-app/oclivenewnew)、[oclive-pack-editor](https://github.com/oclive-app/oclive-pack-editor)、本仓库；或使用各仓库 **Release** 构建的 `.exe`。 |
 | 3 | 打开本启动器，在 **「启动」** 中填写 **编写器**与 **oclive 运行时** 的项目根（开发模式）或可执行文件路径（exe 模式）。 |
 | 4 | 在同一页的 **oclive 运行时** 卡片中填写 **角色包根目录**（环境变量 **`OCLIVE_ROLES_DIR`**）。若 oclive 项目为克隆的 `oclivenewnew`，可点 **「从 oclive 仓库填入」** 自动填入仓库内 `roles/`。启动 oclive 时由启动器注入该变量；留空则不在此注入（你也可在系统环境中自行设置）。 |
 | 5 | 用编写器编辑或导入包并 **导出 zip**，解压到 `OCLIVE_ROLES_DIR/某角色id/`；或使用编写器 **「写入文件夹」** 直接写入该根目录。 |
@@ -84,7 +84,7 @@
 | **首次启动** | 自动跑一次环境检测一次（本地记忆），状态栏提示欢迎语 |
 | **环境与排障** | **一键检测** Node / npm / Ollama（CLI 与 `127.0.0.1:11434` API）、编写器/oclive 项目目录、`OCLIVE_ROLES_DIR` 是否有效；Ollama 未就绪时 **横幅提示**；**Windows**：若本机有 **winget**，可 **一键安装官方 Ollama**；若打包时包含 **`bundled/ollama/OllamaSetup.exe`**，可 **运行附带安装包**（均非静默，可能弹 UAC）；**打开配置目录**；**一键重置**损坏的 `launcher-config.json`（原文件尽量备份为 `launcher-config.json.corrupt.bak`）；附 Node / Ollama 官方下载链接 |
 | **外观与字号** | 日间 **暖色（象牙/卡其）** 界面；顶栏 **A− / 百分比 / A+** 调节缩放（与 **oclive-pack-editor** 档位一致，本地保存）；顶栏 **问号** 说明字号、主题与「保存配置」分工（配置落盘见下「配置存储」） |
-| **推理后端（大脑）** | 可选 **本机 Ollama** 或 **云端 Remote LLM**：注入 **`OCLIVE_LLM_BACKEND`**（`ollama` / `remote`），运行时覆盖角色包内 `plugin_backends.llm`；云端需填 **JSON-RPC** 侧车 URL（非厂商原始 REST），可选 Token 与超时。另可选注入 **`OCLIVE_REMOTE_PLUGIN_URL/TOKEN/TIMEOUT_MS`**，为 `memory/emotion/event/prompt` 提供共用 Remote 侧车端点。协议见 oclivenewnew **`REMOTE_PLUGIN_PROTOCOL.md`**；**在本机用自带 API Key 接闭源模型**的用户向步骤见 **`SIDECAR_LLM_USER_GUIDE.md`**（[主仓库链接](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/getting-started/SIDECAR_LLM_USER_GUIDE.md)） |
+| **推理后端（大脑）** | 可选 **本机 Ollama** 或 **云端 Remote LLM**：注入 **`OCLIVE_LLM_BACKEND`**（`ollama` / `remote`），运行时覆盖角色包内 `plugin_backends.llm`；云端需填 **JSON-RPC** 侧车 URL（非厂商原始 REST），可选 Token 与超时。另可选注入 **`OCLIVE_REMOTE_PLUGIN_URL/TOKEN/TIMEOUT_MS`**，为 `memory/emotion/event/prompt` 提供共用 Remote 侧车端点。协议见 oclivenewnew **`REMOTE_PLUGIN_PROTOCOL.md`**；**在本机用自带 API Key 接闭源模型**的用户向步骤见 **`SIDECAR_LLM_USER_GUIDE.md`**（[主仓库链接](https://github.com/oclive-app/oclivenewnew/blob/main/creator-docs/getting-started/SIDECAR_LLM_USER_GUIDE.md)） |
 | **角色包 zip 安装** | 「从 zip 安装角色包」：解压编写器导出的包到 `roles/` 下，对话框选择 **Ollama 模型**（默认 `qwen2.5:7b`）、本机已拉取列表、或 **手动输入**；可选是否 **覆盖** `settings.json` 里已有 `model`；可一键 **`ollama pull`**（日志筛选「ollama」） |
 | **运行日志** | 子进程在 Windows 上使用 **无控制台窗口** 启动，输出汇总到下方日志区，可按应用筛选（含 **ollama pull**、**winget**、**附带安装包**） |
 
@@ -92,7 +92,7 @@
 
 维护者可编辑本仓库 **[docs/announcements/developer.md](./docs/announcements/developer.md)**（索引见 **[docs/announcements/README.md](./docs/announcements/README.md)**），发布后把 **Raw** 链接填进启动器（`main` 分支示例）：
 
-`https://raw.githubusercontent.com/linkaiheng2233-cyber/oclive-launcher/main/docs/announcements/developer.md`
+`https://raw.githubusercontent.com/oclive-app/oclive-launcher/main/docs/announcements/developer.md`
 
 ## 随包寄语与职责边界（创作者公告）
 
@@ -111,7 +111,7 @@
 |------|------|
 | **整合包 / 离线安装** | 将启动器、Ollama、基础模型、示例角色打成一个安装包，实现「下载即聊」——需安装包工程与许可证策略，与 CI 发版流程配合。 |
 | **更智能的依赖** | 在现有检测基础上，可扩展：引导安装 Ollama、拉取推荐模型、低配机策略等（须避免静默破坏用户环境）。 |
-| **包 / 插件「商店」** | 浏览与一键安装社区角色包——依赖索引服务、签名与版本契约；**发版与市场同发、启动器入口** 的落地步骤见主仓库 **[MARKET_LAUNCHER_INTEGRATION.md](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/roadmap/MARKET_LAUNCHER_INTEGRATION.md)**（与 [BACKLOG_EXPERIENCE_AND_ECOSYSTEM](https://github.com/linkaiheng2233-cyber/oclivenewnew/blob/main/creator-docs/roadmap/BACKLOG_EXPERIENCE_AND_ECOSYSTEM.md) 第三节对照）。 |
+| **包 / 插件「商店」** | 浏览与一键安装社区角色包——依赖索引服务、签名与版本契约；**发版与市场同发、启动器入口** 的落地步骤见主仓库 **[MARKET_LAUNCHER_INTEGRATION.md](https://github.com/oclive-app/oclivenewnew/blob/main/creator-docs/roadmap/MARKET_LAUNCHER_INTEGRATION.md)**（与 [BACKLOG_EXPERIENCE_AND_ECOSYSTEM](https://github.com/oclive-app/oclivenewnew/blob/main/creator-docs/roadmap/BACKLOG_EXPERIENCE_AND_ECOSYSTEM.md) 第三节对照）。 |
 | **开源协作** | 角色包、插件与文档由社区贡献，与主仓库 `CONTRIBUTING`、扩展点文档一致。 |
 
 若本地未克隆 `oclivenewnew`，也可在浏览器打开主仓库中的同路径文档（以你托管的 URL 为准）。
