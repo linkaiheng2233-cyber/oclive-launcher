@@ -2,6 +2,8 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { useI18n } from "vue-i18n";
+import { setAppLocale, type AppLocale } from "./i18n";
 import HelpHint from './components/HelpHint.vue'
 import CreatorAnnouncementsSection from './announcements/CreatorAnnouncementsSection.vue'
 import DeveloperAnnouncementsSection from './announcements/DeveloperAnnouncementsSection.vue'
@@ -28,13 +30,13 @@ import {
   LAUNCHER_HINT_VERSION_REPO_OCLIVE,
 } from './lib/launcherHints'
 
-const VIEW_LABELS: Record<string, string> = {
-  start: '新手入门',
-  version: '版本与下载',
-  'launch-oclive': '启动 oclive',
-  'launch-editor': '角色包编写器',
-  assistant: '环境检查',
-  logs: '运行日志',
+const { t } = useI18n()
+
+const uiLocale = ref<AppLocale>("system");
+function onLocaleChange(v: string) {
+  const next = (v as AppLocale) || "system";
+  uiLocale.value = next;
+  setAppLocale(next);
 }
 
 /** 发给别人用的包请保持 false；本地维护者构建可设为 true 以编辑开发者公告文件 */
@@ -958,7 +960,16 @@ function focusLogsFilter(filter: LogAppFilter) {
   activeNav.value = 'logs'
 }
 
-const currentViewLabel = computed(() => VIEW_LABELS[activeNav.value] ?? '')
+const currentViewLabel = computed(() => {
+  const id = activeNav.value
+  if (id === 'start') return String(t('launcher.views.start'))
+  if (id === 'version') return String(t('launcher.views.version'))
+  if (id === 'launch-oclive') return String(t('launcher.views.launchOclive'))
+  if (id === 'launch-editor') return String(t('launcher.views.launchEditor'))
+  if (id === 'assistant') return String(t('launcher.views.assistant'))
+  if (id === 'logs') return String(t('launcher.views.logs'))
+  return ''
+})
 
 function setView(id: string) {
   activeNav.value = id
@@ -1056,6 +1067,18 @@ onUnmounted(() => {
             </p>
           </div>
           <div class="titlebar-actions" role="toolbar" aria-label="外观与字号">
+            <label class="shell-locale">
+              <span class="sr-only">{{ t("common.language") }}</span>
+              <select
+                class="shell-locale-select"
+                :value="uiLocale"
+                @change="onLocaleChange(($event.target as HTMLSelectElement).value)"
+              >
+                <option value="system">{{ t("common.system") }}</option>
+                <option value="zh-CN">{{ t("common.zhCN") }}</option>
+                <option value="en-US">{{ t("common.enUS") }}</option>
+              </select>
+            </label>
             <div class="shell-scale" aria-label="界面大小">
               <button type="button" class="shell-tool-btn" title="缩小" aria-label="缩小界面" @click="bumpScale(-1)">
                 A−
@@ -2155,6 +2178,20 @@ onUnmounted(() => {
     var(--fluent-shadow-soft),
     0 0 0 2px var(--fluent-bg-page),
     0 0 0 4px var(--fluent-border-focus);
+}
+
+.shell-locale-select {
+  padding: 0.35rem 0.55rem;
+  min-height: 30px;
+  border-radius: var(--fluent-radius);
+  border: 1px solid var(--fluent-border-stroke);
+  background: color-mix(in srgb, var(--fluent-bg-card) 82%, transparent);
+  color: var(--fluent-text-primary);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: var(--fluent-font);
+  box-shadow: var(--fluent-shadow-soft);
 }
 
 .shell-tool-btn:active {
