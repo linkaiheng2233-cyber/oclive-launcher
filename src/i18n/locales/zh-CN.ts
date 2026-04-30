@@ -61,6 +61,41 @@ export default {
         "你可以只聊天、只做角色，或两个都来——下面是一条最省事的路线：写设定 → 放进角色文件夹 → 开 oclive 聊天。看版本号、对 GitHub 发版请点左侧「版本」。",
       desc:
         "三个东西分工不同：本程序负责一键打开；编写器用来写内容；oclive 是聊天窗口。角色文件都放在磁盘上的 roles 一类文件夹里（启动器里叫「角色包根目录」）。",
+      steps: {
+        env: {
+          strong: "先把环境备好",
+          colon: "：",
+          devPrefix: "开发用要装 ",
+          devSuffix: "；",
+          localPrefix: "电脑本地跑对话大脑要装 ",
+          localSuffix: "。第一次打开启动器会自动帮你测一遍，也可随时去「环境」点「重新检测」。",
+        },
+        download: {
+          strong: "下载或克隆软件",
+          colon: "：",
+          prefix: "打开 OCLive 生态站的",
+          versionsStrong: "发布汇总",
+          suffix:
+            "页可一次看到各软件发布列表；也可点左侧「版本」进本页，用快捷按钮或粘贴 GitHub 网址检查更新。会开发的同学也可以把仓库克隆到本地。",
+        },
+        paths: {
+          strong: "在左侧「oclive」「编写器」里填路径",
+          colon: "：",
+          text:
+            "告诉启动器两个软件在哪（网页 / 文件夹 / exe）；在 oclive 页填「角色包根目录」让聊天软件找得到角色（可点「从仓库猜」偷懒）。",
+        },
+        roles: {
+          strong: "准备角色文件",
+          colon: "：",
+          text: "编写器导出 zip，解压到角色目录里对应角色文件夹；或用编写器自带的「写入文件夹」。",
+        },
+        chat: {
+          strong: "开聊",
+          colon: "：",
+          text:
+            "在左侧「oclive」页启动聊天软件，在软件里选角色对话。用 Ollama 的话记得先拉模型（「环境」页有快捷按钮）。",
+        },
+      },
       links: {
         ollamaDownload: "Ollama 下载",
         ollamaLibrary: "Ollama 模型库",
@@ -83,8 +118,75 @@ export default {
         placeholder: "例如 https://github.com/你的用户名/oclive-pack-editor",
         apply: "填入 owner / repo",
       },
+      repoHelp: {
+        prefix: "下面分两块：",
+        editorStrong: "编写器",
+        middle: "一块、",
+        suffix:
+          "一块。每块都可以先粘贴整段仓库网址再点「填入」，或手改 owner / repo。最底下两个按钮用来联网查 GitHub；区别见「检查更新」旁的问号。",
+      },
+      editorRepoLabel: "编写器在哪个仓库",
+      compareLabel: "本机版本 vs 网上最新",
+      localVersion: "本机版本",
+      ocliveRepoPasteLabel: "粘贴 oclive 仓库网址（可选）",
+      ocliveRepoPastePlaceholder: "例如 https://github.com/你的用户名/oclivenewnew",
+      applyOwnerRepo: "填入 owner / repo",
       remoteVersion: "网上最新",
       openRelease: "打开发布页",
+      checkUpdatesLabel: "检查更新",
+      syncAndCheck: "同步粘贴的 GitHub 网址并检查更新",
+      checkOnly: "仅检查更新（当前 owner/repo）",
+    },
+    assistant: {
+      title: "本机环境一眼看完",
+      banners: {
+        nodeStrong: "没检测到 Node / npm",
+        nodeText: "：只有当你要用「开发模式」跑源码时才必须装；若只用安装包 exe，可以忽略。",
+        getNode: "去下 Node",
+        ollamaStrong: "Ollama 没连上",
+        ollamaText: "：打算让对话走本机模型时，需要先装好并打开 Ollama（托盘里常驻）。",
+        getOllama: "去下 Ollama",
+        wingetInstall: "winget 一键装",
+        runBundledInstaller: "跑附带安装包",
+      },
+      remoteHintPrefix: "你在 oclive 页选了",
+      remoteHintStrong: "云端大脑",
+      remoteHintSuffix:
+        "，聊天可以不靠本机 Ollama；下面装 zip、选模型时若仍要用本机模型，下面的按钮照样有用。",
+      actions: {
+        rerunDiagnose: "重新检测一遍",
+        openConfigDir: "打开配置文件夹",
+        resetConfig: "恢复默认配置",
+      },
+      tableHintPrefix: "点「重新检测」刷新表格。配置文件坏了可用「恢复默认」，旧文件会尽量改名成",
+      tableHintSuffix: "留着。",
+      fallbacks: {
+        nodeMissing: "没装或没进 PATH（开发模式才需要）",
+        npmMissing: "未检测到",
+        ollamaCliMissing: "没找到命令（有时服务仍在跑，看下一行）",
+        ollamaApiOk: "本机 11434 端口通着",
+        ollamaApiBad: "连不上（先打开 Ollama 软件）",
+      },
+      projects: {
+        ok: "正常",
+        editor: {
+          webMode: "用浏览器，不用本地文件夹",
+          missingPath: "没填（开发模式才要填）",
+          badPath: "路径不存在或不是文件夹",
+          missingPkgJson: "缺少 package.json",
+        },
+        oclive: {
+          missingPath: "没填（开发模式才要填）",
+          badPath: "路径不存在或不是文件夹",
+          missingPkgJson: "缺少 package.json",
+        },
+      },
+      rolesDir: {
+        missingOk: "没填也行；填了启动 oclive 会自动指过去",
+        badPath: "路径不对",
+        noRolesYet: "文件夹在，还没看到角色文件（可先启动再装）",
+        looksOk: "看起来已有角色数据",
+      },
     },
     status: {
       configSaved: "配置已保存",
@@ -134,6 +236,12 @@ export default {
       installOllamaViaWinget:
         "将通过 Windows 官方包管理器 winget 安装「Ollama.Ollama」。可能弹出 UAC 或安装向导，且需网络下载。是否继续？",
       resetConfigToDefault: "将清空启动器内保存的路径，并恢复默认（含上游 GitHub owner/repo 占位）。是否继续？",
+    },
+    ollama: {
+      modelOptions: {
+        recommendedDefault: "{model}（推荐默认）",
+        custom: "手动输入模型名…",
+      },
     },
   },
   creatorAnnouncements: {

@@ -216,7 +216,7 @@ const editorPagesUrlPreview = computed(() => {
 
 const installModelOptions = computed(() => {
   const opts: { value: string; label: string }[] = [
-    { value: DEFAULT_OLLAMA_MODEL, label: `${DEFAULT_OLLAMA_MODEL}（推荐默认）` },
+    { value: DEFAULT_OLLAMA_MODEL, label: String(t("launcher.ollama.modelOptions.recommendedDefault", { model: DEFAULT_OLLAMA_MODEL })) },
   ]
   const fromHost = ollamaLocalModels.value.filter((m) => m !== DEFAULT_OLLAMA_MODEL)
   const seen = new Set(opts.map((o) => o.value))
@@ -225,7 +225,7 @@ const installModelOptions = computed(() => {
     seen.add(m)
     opts.push({ value: m, label: m })
   }
-  opts.push({ value: MODEL_OPTION_CUSTOM, label: '手动输入模型名…' })
+  opts.push({ value: MODEL_OPTION_CUSTOM, label: String(t("launcher.ollama.modelOptions.custom")) })
   return opts
 })
 
@@ -1094,7 +1094,7 @@ onUnmounted(() => {
               :title="String(t('launcher.titlebar.themeTitle', { label: themeCycleLabel }))"
               @click="cycleTheme"
             >
-              {{ themeCycleLabel === '跟随系统' ? '◐' : themeCycleLabel === '深色' ? '🌙' : '☀️' }}
+              {{ themePreference === 'system' ? '◐' : themePreference === 'dark' ? '🌙' : '☀️' }}
               {{ themeCycleLabel }}
             </button>
             <button
@@ -1136,19 +1136,25 @@ onUnmounted(() => {
         <p class="hint">{{ t("launcher.startGuide.desc") }}</p>
         <ol class="guide-steps">
           <li>
-            <strong>先把环境备好</strong>：开发用要装 <strong>Node</strong>；电脑本地跑对话大脑要装 <strong>Ollama</strong>。第一次打开启动器会自动帮你测一遍，也可随时去「环境」点「重新检测」。
+            <strong>{{ t("launcher.startGuide.steps.env.strong") }}</strong>{{ t("launcher.startGuide.steps.env.colon") }}
+            {{ t("launcher.startGuide.steps.env.devPrefix") }} <strong>Node</strong>{{ t("launcher.startGuide.steps.env.devSuffix") }}
+            {{ t("launcher.startGuide.steps.env.localPrefix") }} <strong>Ollama</strong>{{ t("launcher.startGuide.steps.env.localSuffix") }}
           </li>
           <li>
-            <strong>下载或克隆软件</strong>：打开 OCLive 生态站的<strong>发布汇总</strong>页可一次看到各软件发布列表；也可点左侧「版本」进本页，用快捷按钮或粘贴 GitHub 网址检查更新。会开发的同学也可以把仓库克隆到本地。
+            <strong>{{ t("launcher.startGuide.steps.download.strong") }}</strong>{{ t("launcher.startGuide.steps.download.colon") }}
+            {{ t("launcher.startGuide.steps.download.prefix") }}<strong>{{ t("launcher.startGuide.steps.download.versionsStrong") }}</strong>{{ t("launcher.startGuide.steps.download.suffix") }}
           </li>
           <li>
-            <strong>在左侧「oclive」「编写器」里填路径</strong>：告诉启动器两个软件在哪（网页 / 文件夹 / exe）；在 oclive 页填「角色包根目录」让聊天软件找得到角色（可点「从仓库猜」偷懒）。
+            <strong>{{ t("launcher.startGuide.steps.paths.strong") }}</strong>{{ t("launcher.startGuide.steps.paths.colon") }}
+            {{ t("launcher.startGuide.steps.paths.text") }}
           </li>
           <li>
-            <strong>准备角色文件</strong>：编写器导出 zip，解压到角色目录里对应角色文件夹；或用编写器自带的「写入文件夹」。
+            <strong>{{ t("launcher.startGuide.steps.roles.strong") }}</strong>{{ t("launcher.startGuide.steps.roles.colon") }}
+            {{ t("launcher.startGuide.steps.roles.text") }}
           </li>
           <li>
-            <strong>开聊</strong>：在左侧「oclive」页启动聊天软件，在软件里选角色对话。用 Ollama 的话记得先拉模型（「环境」页有快捷按钮）。
+            <strong>{{ t("launcher.startGuide.steps.chat.strong") }}</strong>{{ t("launcher.startGuide.steps.chat.colon") }}
+            {{ t("launcher.startGuide.steps.chat.text") }}
           </li>
         </ol>
         <p class="hint guide-links">
@@ -1202,7 +1208,7 @@ onUnmounted(() => {
           </div>
         </div>
         <p class="hint">
-          下面分两块：<strong>编写器</strong>一块、<strong>oclive</strong>一块。每块都可以先粘贴整段仓库网址再点「填入」，或手改 owner / repo。最底下两个按钮用来联网查 GitHub；区别见「检查更新」旁的问号。
+          {{ t("launcher.versionPage.repoHelp.prefix") }}<strong>{{ t("launcher.versionPage.repoHelp.editorStrong") }}</strong>{{ t("launcher.versionPage.repoHelp.middle") }}<strong>oclive</strong>{{ t("launcher.versionPage.repoHelp.suffix") }}
         </p>
 
         <div class="gh-paste-block">
@@ -1224,7 +1230,7 @@ onUnmounted(() => {
 
         <div class="gh-row">
           <div class="label-with-hint gh-row__label">
-            <label>编写器在哪个仓库</label>
+            <label>{{ t("launcher.versionPage.editorRepoLabel") }}</label>
             <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_REPO_EDITOR" />
           </div>
           <div class="gh-inputs">
@@ -1234,11 +1240,11 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="label-with-hint ver-compare-hint">
-          <span class="ver-subtle-label">本机版本 vs 网上最新</span>
+          <span class="ver-subtle-label">{{ t("launcher.versionPage.compareLabel") }}</span>
           <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_LOCAL_VS_REMOTE" />
         </div>
         <div class="ver-line">
-          <span>本机版本</span>
+          <span>{{ t("launcher.versionPage.localVersion") }}</span>
           <strong>{{ editorLocalVer ?? '—' }}</strong>
         </div>
         <div class="ver-line" v-if="editorRemote">
@@ -1253,18 +1259,18 @@ onUnmounted(() => {
 
         <div class="gh-paste-block">
           <div class="label-with-hint">
-            <label>粘贴 oclive 仓库网址（可选）</label>
+            <label>{{ t("launcher.versionPage.ocliveRepoPasteLabel") }}</label>
             <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
           </div>
           <div class="row">
             <input
               v-model="ocliveGhUrlPaste"
               class="paste-url-input"
-              placeholder="例如 https://github.com/你的用户名/oclivenewnew"
+              :placeholder="String(t('launcher.versionPage.ocliveRepoPastePlaceholder'))"
               autocomplete="off"
               @keydown.enter.prevent="applyOcliveRepoFromPastedUrl"
             />
-            <button type="button" class="btn" @click="applyOcliveRepoFromPastedUrl">填入 owner / repo</button>
+            <button type="button" class="btn" @click="applyOcliveRepoFromPastedUrl">{{ t("launcher.versionPage.applyOwnerRepo") }}</button>
           </div>
         </div>
 
@@ -1288,40 +1294,40 @@ onUnmounted(() => {
           <strong>{{ ocliveLocalVer ?? '—' }}</strong>
         </div>
         <div class="ver-line" v-if="ocliveRemote">
-          <span>网上最新</span>
+          <span>{{ t("launcher.versionPage.remoteVersion") }}</span>
           <strong>{{ ocliveRemote.tagName }}</strong>
           <button type="button" class="btn tiny" @click="openRelease(ocliveRemote.htmlUrl)">
-            打开发布页
+            {{ t("launcher.versionPage.openRelease") }}
           </button>
         </div>
 
         <p v-if="checkErr" class="err">{{ checkErr }}</p>
         <div class="ver-actions-wrap">
           <div class="label-with-hint ver-actions-hint">
-            <span class="ver-subtle-label">检查更新</span>
+            <span class="ver-subtle-label">{{ t("launcher.versionPage.checkUpdatesLabel") }}</span>
             <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_ACTIONS" />
           </div>
           <div class="ver-actions-row">
             <button type="button" class="btn primary" @click="syncGithubUrlsAndCheckUpdates">
-              同步粘贴的 GitHub 网址并检查更新
+              {{ t("launcher.versionPage.syncAndCheck") }}
             </button>
-            <button type="button" class="btn" @click="checkReleases">仅检查更新（当前 owner/repo）</button>
+            <button type="button" class="btn" @click="checkReleases">{{ t("launcher.versionPage.checkOnly") }}</button>
           </div>
         </div>
       </section>
 
     <section v-else-if="activeNav === 'assistant'" class="view-panel card">
         <div class="section-title-row">
-          <h2>本机环境一眼看完</h2>
+          <h2>{{ t("launcher.assistant.title") }}</h2>
           <HelpHint :paragraphs="LAUNCHER_HINT_ASSISTANT" />
         </div>
         <div v-if="envDiag && nodeNeedsAttention" class="banner-warn banner-node" role="status">
-          <strong>没检测到 Node / npm</strong>：只有当你要用「开发模式」跑源码时才必须装；若只用安装包 exe，可以忽略。
-          <button type="button" class="btn tiny" @click="openRelease('https://nodejs.org/')">去下 Node</button>
+          <strong>{{ t("launcher.assistant.banners.nodeStrong") }}</strong>{{ t("launcher.assistant.banners.nodeText") }}
+          <button type="button" class="btn tiny" @click="openRelease('https://nodejs.org/')">{{ t("launcher.assistant.banners.getNode") }}</button>
         </div>
         <div v-if="envDiag && ollamaNeedsAttention" class="banner-warn" role="status">
-          <strong>Ollama 没连上</strong>：打算让对话走本机模型时，需要先装好并打开 Ollama（托盘里常驻）。
-          <button type="button" class="btn tiny" @click="openRelease('https://ollama.com/download')">去下 Ollama</button>
+          <strong>{{ t("launcher.assistant.banners.ollamaStrong") }}</strong>{{ t("launcher.assistant.banners.ollamaText") }}
+          <button type="button" class="btn tiny" @click="openRelease('https://ollama.com/download')">{{ t("launcher.assistant.banners.getOllama") }}</button>
           <button
             v-if="wingetAvailable"
             type="button"
@@ -1329,7 +1335,7 @@ onUnmounted(() => {
             :disabled="wingetInstallBusy"
             @click="installOllamaViaWinget"
           >
-            winget 一键装
+            {{ t("launcher.assistant.banners.wingetInstall") }}
           </button>
           <button
             v-if="bundledOllamaPath"
@@ -1338,41 +1344,40 @@ onUnmounted(() => {
             :disabled="wingetInstallBusy"
             @click="launchBundledOllamaInstaller"
           >
-            跑附带安装包
+            {{ t("launcher.assistant.banners.runBundledInstaller") }}
           </button>
         </div>
         <div v-if="config.ocliveLlmMode === 'remote' && envDiag" class="banner-hint-remote" role="note">
-          你在 oclive 页选了<strong>云端大脑</strong>，聊天可以不靠本机 Ollama；下面装 zip、选模型时若仍要用本机模型，下面的按钮照样有用。
+          {{ t("launcher.assistant.remoteHintPrefix") }}<strong>{{ t("launcher.assistant.remoteHintStrong") }}</strong>{{ t("launcher.assistant.remoteHintSuffix") }}
         </div>
 
         <div class="assistant-actions">
-          <button type="button" class="btn primary" @click="() => runEnvironmentDiagnose()">重新检测一遍</button>
-          <button type="button" class="btn" @click="openLauncherConfigFolder">打开配置文件夹</button>
-          <button type="button" class="btn danger" @click="resetLauncherConfig">恢复默认配置</button>
+          <button type="button" class="btn primary" @click="() => runEnvironmentDiagnose()">{{ t("launcher.assistant.actions.rerunDiagnose") }}</button>
+          <button type="button" class="btn" @click="openLauncherConfigFolder">{{ t("launcher.assistant.actions.openConfigDir") }}</button>
+          <button type="button" class="btn danger" @click="resetLauncherConfig">{{ t("launcher.assistant.actions.resetConfig") }}</button>
         </div>
         <p v-if="envDiagErr" class="err">{{ envDiagErr }}</p>
         <p class="hint">
-          点「重新检测」刷新表格。配置文件坏了可用「恢复默认」，旧文件会尽量改名成
-          <code>launcher-config.json.corrupt.bak</code> 留着。
+          {{ t("launcher.assistant.tableHintPrefix") }}<code>launcher-config.json.corrupt.bak</code>{{ t("launcher.assistant.tableHintSuffix") }}
         </p>
         <table v-if="envDiag" class="diag-table">
           <tbody>
             <tr>
               <th>Node.js</th>
               <td :class="{ ok: !!envDiag.nodeVersion, bad: !envDiag.nodeVersion }">
-                {{ envDiag.nodeVersion ?? '没装或没进 PATH（开发模式才需要）' }}
+                {{ envDiag.nodeVersion ?? t("launcher.assistant.fallbacks.nodeMissing") }}
               </td>
             </tr>
             <tr>
               <th>npm</th>
               <td :class="{ ok: !!envDiag.npmVersion, bad: !envDiag.npmVersion }">
-                {{ envDiag.npmVersion ?? '未检测到' }}
+                {{ envDiag.npmVersion ?? t("launcher.assistant.fallbacks.npmMissing") }}
               </td>
             </tr>
             <tr>
               <th>Ollama 命令行</th>
               <td :class="{ ok: !!envDiag.ollamaVersion, bad: !envDiag.ollamaVersion }">
-                {{ envDiag.ollamaVersion ?? '没找到命令（有时服务仍在跑，看下一行）' }}
+                {{ envDiag.ollamaVersion ?? t("launcher.assistant.fallbacks.ollamaCliMissing") }}
               </td>
             </tr>
             <tr>
@@ -1380,28 +1385,28 @@ onUnmounted(() => {
               <td :class="{ ok: envDiag.ollamaApiReachable, bad: !envDiag.ollamaApiReachable }">
                 {{
                   envDiag.ollamaApiReachable
-                    ? '本机 11434 端口通着'
-                    : '连不上（先打开 Ollama 软件）'
+                    ? t("launcher.assistant.fallbacks.ollamaApiOk")
+                    : t("launcher.assistant.fallbacks.ollamaApiBad")
                 }}
               </td>
             </tr>
             <tr>
               <th>编写器项目</th>
               <td :class="{ ok: envDiag.editorProjectOk && envDiag.editorPackageJson, bad: !envDiag.editorProjectOk }">
-                <template v-if="config.editorMode === 'web'">用浏览器，不用本地文件夹</template>
-                <template v-else-if="!config.editorProjectRoot?.trim()">没填（开发模式才要填）</template>
-                <template v-else-if="!envDiag.editorProjectOk">路径不存在或不是文件夹</template>
-                <template v-else-if="!envDiag.editorPackageJson">缺少 package.json</template>
-                <template v-else>正常</template>
+                <template v-if="config.editorMode === 'web'">{{ t("launcher.assistant.projects.editor.webMode") }}</template>
+                <template v-else-if="!config.editorProjectRoot?.trim()">{{ t("launcher.assistant.projects.editor.missingPath") }}</template>
+                <template v-else-if="!envDiag.editorProjectOk">{{ t("launcher.assistant.projects.editor.badPath") }}</template>
+                <template v-else-if="!envDiag.editorPackageJson">{{ t("launcher.assistant.projects.editor.missingPkgJson") }}</template>
+                <template v-else>{{ t("launcher.assistant.projects.ok") }}</template>
               </td>
             </tr>
             <tr>
               <th>oclive 项目</th>
               <td :class="{ ok: envDiag.ocliveProjectOk && envDiag.oclivePackageJson, bad: !envDiag.ocliveProjectOk }">
-                <template v-if="!config.ocliveProjectRoot?.trim()">没填（开发模式才要填）</template>
-                <template v-else-if="!envDiag.ocliveProjectOk">路径不存在或不是文件夹</template>
-                <template v-else-if="!envDiag.oclivePackageJson">缺少 package.json</template>
-                <template v-else>正常</template>
+                <template v-if="!config.ocliveProjectRoot?.trim()">{{ t("launcher.assistant.projects.oclive.missingPath") }}</template>
+                <template v-else-if="!envDiag.ocliveProjectOk">{{ t("launcher.assistant.projects.oclive.badPath") }}</template>
+                <template v-else-if="!envDiag.oclivePackageJson">{{ t("launcher.assistant.projects.oclive.missingPkgJson") }}</template>
+                <template v-else>{{ t("launcher.assistant.projects.ok") }}</template>
               </td>
             </tr>
             <tr>
@@ -1412,10 +1417,10 @@ onUnmounted(() => {
                   bad: !!config.ocliveRolesDir?.trim() && !envDiag.ocliveRolesDirOk,
                 }"
               >
-                <template v-if="!config.ocliveRolesDir?.trim()">没填也行；填了启动 oclive 会自动指过去</template>
-                <template v-else-if="!envDiag.ocliveRolesDirOk">路径不对</template>
-                <template v-else-if="!envDiag.ocliveRolesDirHasRoleHint">文件夹在，还没看到角色文件（可先启动再装）</template>
-                <template v-else>看起来已有角色数据</template>
+                <template v-if="!config.ocliveRolesDir?.trim()">{{ t("launcher.assistant.rolesDir.missingOk") }}</template>
+                <template v-else-if="!envDiag.ocliveRolesDirOk">{{ t("launcher.assistant.rolesDir.badPath") }}</template>
+                <template v-else-if="!envDiag.ocliveRolesDirHasRoleHint">{{ t("launcher.assistant.rolesDir.noRolesYet") }}</template>
+                <template v-else>{{ t("launcher.assistant.rolesDir.looksOk") }}</template>
               </td>
             </tr>
           </tbody>

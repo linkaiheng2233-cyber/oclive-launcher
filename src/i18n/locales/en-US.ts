@@ -62,6 +62,43 @@ export default {
         "You can just chat, just create roles, or do both. Here’s the easiest route: write settings → put them into the role folder → open oclive and chat. For versions and GitHub releases, go to “Versions” on the left.",
       desc:
         "These three tools have different jobs: this launcher opens things with one click; the editor writes content; oclive is the chat window. Role files live in a disk folder like roles (called “Role packs root directory” in the launcher).",
+      steps: {
+        env: {
+          strong: "Prepare the environment first",
+          colon: ": ",
+          devPrefix: "For development you need ",
+          devSuffix: ";",
+          localPrefix: "for local chat brain you need ",
+          localSuffix:
+            ". On first launch we’ll auto-check once; you can also re-run it anytime in “Environment”.",
+        },
+        download: {
+          strong: "Download or clone the software",
+          colon: ": ",
+          prefix: "Open the OCLive ecosystem site’s ",
+          versionsStrong: "releases overview",
+          suffix:
+            " to see all tools at once. Or use the left “Versions” section to check updates via buttons or pasted GitHub URLs. Developers can also clone repos locally.",
+        },
+        paths: {
+          strong: "Fill paths on the left (“oclive” / “Editor”)",
+          colon: ": ",
+          text:
+            "Tell the launcher where the two apps are (web / folder / exe). In the oclive page, fill “Role packs root directory” so the runtime can find roles (you can click “Suggest from repo”).",
+        },
+        roles: {
+          strong: "Prepare role files",
+          colon: ": ",
+          text:
+            "Export a zip from the editor, unzip into the roles directory under the role folder. Or use the editor’s “Write to folder”.",
+        },
+        chat: {
+          strong: "Start chatting",
+          colon: ": ",
+          text:
+            "Launch oclive in the left “oclive” section, then choose a role in the app and chat. If using Ollama, remember to pull a model (quick buttons are in “Environment”).",
+        },
+      },
       links: {
         ollamaDownload: "Ollama download",
         ollamaLibrary: "Ollama model library",
@@ -84,8 +121,80 @@ export default {
         placeholder: "e.g. https://github.com/your-name/oclive-pack-editor",
         apply: "Fill owner / repo",
       },
+      repoHelp: {
+        prefix: "Below are two blocks: one for ",
+        editorStrong: "Editor",
+        middle: ", one for ",
+        suffix:
+          ". In each block you can paste the full repo URL then click “Fill owner / repo”, or edit owner/repo manually. The bottom buttons query GitHub; see the “?” next to “Check updates” for details.",
+      },
+      editorRepoLabel: "Which repository hosts the editor",
+      compareLabel: "Local version vs latest online",
+      localVersion: "Local version",
+      ocliveRepoPasteLabel: "Paste oclive repository URL (optional)",
+      ocliveRepoPastePlaceholder: "e.g. https://github.com/your-name/oclivenewnew",
+      applyOwnerRepo: "Fill owner / repo",
       remoteVersion: "Latest online",
       openRelease: "Open release page",
+      checkUpdatesLabel: "Check updates",
+      syncAndCheck: "Sync pasted GitHub URLs and check updates",
+      checkOnly: "Only check updates (current owner/repo)",
+    },
+    assistant: {
+      title: "Environment overview",
+      banners: {
+        nodeStrong: "Node / npm not detected",
+        nodeText:
+          ": only required when running from source in “dev mode”. If you only use installed exe, you can ignore this.",
+        getNode: "Get Node",
+        ollamaStrong: "Ollama not reachable",
+        ollamaText:
+          ": if you want local models, install and start Ollama (usually running in the tray).",
+        getOllama: "Get Ollama",
+        wingetInstall: "Install via winget",
+        runBundledInstaller: "Run bundled installer",
+      },
+      remoteHintPrefix: "You selected ",
+      remoteHintStrong: "remote brain",
+      remoteHintSuffix:
+        " on the oclive page, so chatting doesn’t require local Ollama. If you still want local models for zip install / model selection below, the buttons are still useful.",
+      actions: {
+        rerunDiagnose: "Re-check",
+        openConfigDir: "Open config folder",
+        resetConfig: "Reset to defaults",
+      },
+      tableHintPrefix:
+        "Click “Re-check” to refresh the table. If config is corrupted, “Reset to defaults” will try to keep a backup as ",
+      tableHintSuffix: ".",
+      fallbacks: {
+        nodeMissing: "Not installed or not in PATH (dev mode only)",
+        npmMissing: "Not detected",
+        ollamaCliMissing:
+          "Command not found (the service might still be running; see next row)",
+        ollamaApiOk: "Local port 11434 is reachable",
+        ollamaApiBad: "Not reachable (start Ollama first)",
+      },
+      projects: {
+        ok: "OK",
+        editor: {
+          webMode: "Browser mode; no local folder needed",
+          missingPath: "Not set (dev mode only)",
+          badPath: "Path does not exist or is not a folder",
+          missingPkgJson: "Missing package.json",
+        },
+        oclive: {
+          missingPath: "Not set (dev mode only)",
+          badPath: "Path does not exist or is not a folder",
+          missingPkgJson: "Missing package.json",
+        },
+      },
+      rolesDir: {
+        missingOk:
+          "Optional; if set, launching oclive will pass it automatically",
+        badPath: "Invalid path",
+        noRolesYet: "Folder exists but no role files detected (you can install after launch)",
+        looksOk: "Looks like role data exists",
+      },
     },
     status: {
       configSaved: "Config saved.",
@@ -144,6 +253,12 @@ export default {
         "This will install “Ollama.Ollama” via Windows package manager winget. It may trigger UAC/installer prompts and requires network download. Continue?",
       resetConfigToDefault:
         "This will clear all saved paths in the launcher and restore defaults (including upstream GitHub owner/repo placeholders). Continue?",
+    },
+    ollama: {
+      modelOptions: {
+        recommendedDefault: "{model} (recommended default)",
+        custom: "Type model name manually…",
+      },
     },
   },
   creatorAnnouncements: {
