@@ -2,8 +2,11 @@ export default {
   common: {
     language: "Language",
     system: "System",
-    zhCN: "中文",
+    zhCN: "Chinese",
     enUS: "English",
+    browse: "Browse…",
+    cancel: "Cancel",
+    optional: "Optional",
   },
   helpHint: {
     ariaLabel: "View help",
@@ -49,6 +52,7 @@ export default {
     },
     nav: {
       mobileAria: "Switch sections",
+      railAria: "Section navigation",
       start: "Getting started",
       version: "Versions",
       launchOclive: "Launch oclive",
@@ -129,6 +133,7 @@ export default {
           ". In each block you can paste the full repo URL then click “Fill owner / repo”, or edit owner/repo manually. The bottom buttons query GitHub; see the “?” next to “Check updates” for details.",
       },
       editorRepoLabel: "Which repository hosts the editor",
+      ocliveRepoLabel: "Which repository hosts oclive",
       compareLabel: "Local version vs latest online",
       localVersion: "Local version",
       ocliveRepoPasteLabel: "Paste oclive repository URL (optional)",
@@ -142,6 +147,49 @@ export default {
     },
     assistant: {
       title: "Environment overview",
+      tableHeaders: {
+        ollamaCli: "Ollama CLI",
+        ollamaService: "Ollama service",
+        editorProject: "Editor project",
+        ocliveProject: "oclive project",
+        rolesDir: "Roles directory",
+      },
+      ollamaDetails: {
+        summary: "Expand: What is Ollama, how to download models, and how it relates to “remote brain”",
+        installStrong: "Install",
+        modelStrong: "Models",
+        remoteStrong: "Remote",
+        colon: ": ",
+        punctuationFullStop: ".",
+        installPrefix: "Go to ",
+        installSuffix:
+          " to download and install, then keep it running in the background. On Windows you can use winget or the bundled installer (may trigger UAC).",
+        modelPrefix:
+          "After installing, you still need to pull models. You can do it while installing a zip role pack in the oclive page, or run ",
+        modelNamePlaceholder: "MODEL_NAME",
+        modelMiddle: ". Library: ",
+        modelLibrary: "model library",
+        modelSuffix: ". Recommended: ",
+        remotePrefix: "Pulling models with ",
+        remoteMiddle:
+          " only affects local models. For OpenAI-like remote APIs, set the role brain to remote and configure env vars. See ",
+      },
+      ollamaQuick: {
+        title: "Ollama quick actions",
+        help: "Install, pull models, and view local models. Progress is in Logs (filter: ollama).",
+        tapOnce: "Tap once",
+        runBundledInstaller: "Run bundled Ollama installer",
+        installViaWinget: "Install Ollama via winget",
+        pullRecommended: "Pull recommended model ({model})",
+        refreshLocalList: "Refresh local list",
+        localModelsPrefix: "Local models: ",
+        localModelsEmpty: "Start Ollama first, then click “Refresh” to list models.",
+      },
+      links: {
+        nodeDownload: "Download Node.js",
+        ollamaDownload: "Download Ollama",
+        ollamaDocs: "Ollama docs",
+      },
       banners: {
         nodeStrong: "Node / npm not detected",
         nodeText:
@@ -195,6 +243,175 @@ export default {
         noRolesYet: "Folder exists but no role files detected (you can install after launch)",
         looksOk: "Looks like role data exists",
       },
+    },
+    common: {
+      suggestFromRepo: "Suggest from repo",
+      recognizePath: "Recognize path",
+      gh: {
+        listAssets: "List assets",
+        pickFile: "Choose file…",
+        downloadTo: "Download to…",
+      },
+      placeholders: {
+        rpcUrl: "e.g. http://127.0.0.1:8765/rpc",
+        timeoutMs: "e.g. 120000",
+        timeoutMsShort: "e.g. 8000",
+      },
+    },
+    launchOclive: {
+      banner: {
+        prefix: "When launching ",
+        middle: " here (including npm dev mode), ",
+        strong: "stdout will appear in the preview below and in Logs",
+        suffix:
+          ". The launcher tries to hide the Windows console window, but installers and app windows may still show up.",
+      },
+      title: "oclive (chat window)",
+      help:
+        "This is the actual chat app. Fill the roles directory and brain mode above, then tell the launcher where the exe or source is below.",
+      sections: {
+        roles: {
+          title: "① Roles & assets",
+          rootLabel: "Role packs root directory",
+          rootHelp:
+            "Fill the parent folder that contains many role folders. Usually it's like “roleName/” with configs inside. Leaving it empty still allows launching, but the launcher won’t auto-point oclive to your roles on disk.",
+          rootHintPrefix: "A parent folder containing many",
+          roleId: "roleId",
+          rootHintSuffix:
+            "subfolders; the launcher will pass it to oclive.",
+          rootPlaceholder: "e.g. D:\\oclivenewnew\\roles",
+          installHint: "You can install editor-exported zip / ocpak into this directory.",
+          installZip: "Install role pack from zip…",
+        },
+        llm: {
+          title: "② Chat brain (LLM)",
+          modeLabel: "Local or remote",
+          modeHelp:
+            "Local uses models in Ollama. Remote uses your own JSON-RPC endpoint, useful when you don’t want to rely on local GPU.",
+          modeHint: "Local = Ollama; remote requires the URL below.",
+          localOllama: "Local Ollama",
+          remoteApi: "Remote API",
+          remoteUrlLabel: "Remote URL (JSON-RPC)",
+          remoteTokenLabel: "Token (optional)",
+          remoteTimeoutLabel: "Timeout ms (optional)",
+          sidecarUrlLabel: "Module sidecar URL (optional; shared by memory/emotion/event/prompt)",
+          sidecarTokenLabel: "Module sidecar token (optional)",
+          sidecarTimeoutLabel: "Module sidecar timeout ms (optional)",
+        },
+        download: {
+          title: "③ Get oclive installer",
+          hint:
+            "Not sure how to fill owner/repo? Open the repo homepage on GitHub, copy the address bar URL, paste it below and click “Fill owner / repo”. This shares the same config with the Versions page.",
+          pasteRepoUrl: "Paste repository URL",
+          ghReleaseLabel: "GitHub Release (same oclive repo as in Versions)",
+          saveAsHint:
+            "Choose a save path. Zip files will be extracted into “{file}_extracted” and we’ll try to auto-detect the exe.",
+        },
+        runMode: {
+          title: "④ Launch mode & paths",
+          dev: "Local source (npm)",
+          exe: "Installed exe",
+          sourceRoot: "Source root directory",
+          sourceRootPlaceholder: "e.g. D:\\oclivenewnew",
+          npmScriptLabel: "npm script",
+          npmScriptPlaceholder: "usually tauri:dev",
+          exePathLabel: "oclive.exe path",
+          exePathHint:
+            "You can paste a full path from Explorer address bar or shortcut. Or click “Recognize path” to parse the current field.",
+          exePathPlaceholder: "e.g. C:\\...\\oclive.exe (pasteable)",
+        },
+        run: {
+          title: "⑤ Run",
+          start: "Launch oclive",
+          stop: "Stop process",
+          filterLogs: "Show only oclive in Logs",
+        },
+      },
+      preview: {
+        title: "oclive output preview",
+        openFullLogs: "Open full Logs page",
+        empty: "No output yet. After launching oclive, the latest lines will appear here.",
+        foot: "Full history and filters (ollama, winget, etc.) are in Logs on the left.",
+      },
+    },
+    launchEditor: {
+      name: "Role Pack Editor",
+      banner: {
+        prefix: "When opening the ",
+        middle: " here, ",
+        strong: "npm/exe output will also appear below and in Logs",
+        suffix: ". In “Web” mode it opens in your system browser.",
+      },
+      help:
+        "Write core character profiles and worldbuilding in the pack, then export zip. Runtime “mutable” profiles are maintained by the model inside oclive and are not editable here. Usually opening the website is enough; choose source/exe only when needed.",
+      sections: {
+        download: {
+          title: "① Get the editor",
+          hint:
+            "Copy the repository homepage URL on GitHub, paste it below and click “Fill owner / repo” to sync owner/repo (shared with the Versions page).",
+          pasteRepoUrl: "Paste repository URL",
+          ghReleaseLabel: "GitHub Release (same editor repo as in Versions)",
+          saveAsHint:
+            "Choose a save path. Portable zip will be extracted and we’ll try to auto-detect the exe.",
+        },
+        open: {
+          title: "② Open mode",
+          web: "Web",
+          dev: "Local source (npm)",
+          exe: "Local exe",
+          webUrlLabel: "Web URL (optional)",
+          webUrlPlaceholder: "Leave empty: {url}",
+          webHint:
+            "Empty uses online Pages. For local debugging you can set something like http://127.0.0.1:…",
+          sourceRoot: "Source root directory",
+          sourceRootPlaceholder: "e.g. D:\\oclive-pack-editor",
+          npmScriptLabel: "npm script",
+          npmScriptPlaceholder: "tauri:dev",
+          exePathLabel: "Editor exe",
+          exePathHint:
+            "Pasting a full path ending with .exe will auto-switch to “Local exe”. You can also click “Recognize path”.",
+          exePathPlaceholder: "e.g. …\\oclive-pack-editor.exe (pasteable)",
+        },
+        run: {
+          title: "③ Run",
+          openInBrowser: "Open in browser",
+          launchEditor: "Launch editor",
+          stop: "Stop process",
+          filterLogs: "Show only editor in Logs",
+        },
+      },
+      preview: {
+        title: "Editor output preview",
+        openFullLogs: "Open full Logs page",
+        empty: "No output yet. After launching the editor, the latest lines will appear here.",
+        foot: "Full history and filters are in Logs on the left.",
+      },
+    },
+    logsPage: {
+      title: "Background logs",
+      onlyShow: "Only show",
+      filters: {
+        all: "All",
+        editor: "Editor",
+        ollama: "Model pulls",
+        winget: "winget install",
+        bundledOllama: "Bundled installer",
+      },
+      clear: "Clear",
+    },
+    installModal: {
+      title: "Install role pack: choose brain (Ollama model)",
+      modelLabel: "Which model to use?",
+      modelHintPrefix: "Recommended default ",
+      modelHintSuffix:
+        "; below are local pulled models (from ollama list / API). Remote APIs do not use Ollama; see Environment for details.",
+      customModelLabel: "Custom model name (same as ollama pull)",
+      customModelPlaceholder: "e.g. llama3.2:latest",
+      overwriteModel:
+        "If settings.json already has model, still overwrite it with the selected model",
+      refreshLocalList: "Refresh local list",
+      pullSelected: "Pull selected model (ollama pull)",
+      extractAndWrite: "Extract and write",
     },
     status: {
       configSaved: "Config saved.",

@@ -515,7 +515,9 @@ async function downloadOcliveFromGh() {
       await saveConfig()
       statusMsg.value = String(t("launcher.status.ocliveDownloadedAndConfigured"))
     } else {
-      statusMsg.value = r.hint ? `${r.hint}（已保存：${r.savedPath}）` : `已保存：${r.savedPath}`
+      statusMsg.value = r.hint
+        ? String(t('launcher.status.savedHintAndPath', { hint: r.hint, savedPath: r.savedPath }))
+        : String(t('launcher.status.savedPathOnly', { savedPath: r.savedPath }))
     }
   } catch (e) {
     statusMsg.value = String(e)
@@ -544,7 +546,9 @@ async function downloadEditorFromGh() {
       await saveConfig()
       statusMsg.value = String(t("launcher.status.editorDownloadedAndConfigured"))
     } else {
-      statusMsg.value = r.hint ? `${r.hint}（已保存：${r.savedPath}）` : `已保存：${r.savedPath}`
+      statusMsg.value = r.hint
+        ? String(t('launcher.status.savedHintAndPath', { hint: r.hint, savedPath: r.savedPath }))
+        : String(t('launcher.status.savedPathOnly', { savedPath: r.savedPath }))
     }
   } catch (e) {
     statusMsg.value = String(e)
@@ -992,7 +996,7 @@ onMounted(async () => {
   )
   unlistenExit = await listen<{ app: string; code: number | null }>('launcher-exit', (e) => {
     const p = e.payload
-    pushLog(p.app, 'out', `--- 进程已结束 (exit code: ${p.code ?? '?'}) ---`)
+    pushLog(p.app, 'out', String(t('launcher.logs.processExited', { code: p.code ?? '?' })))
   })
   try {
     const raw = localStorage.getItem(THEME_STORAGE_KEY)
@@ -1024,7 +1028,7 @@ onUnmounted(() => {
 
 <template>
   <div class="fluent-root">
-    <aside class="rail" aria-label="区块导航">
+    <aside class="rail" :aria-label="String(t('launcher.nav.railAria'))">
       <button
         v-for="item in navItems"
         :key="item.id"
@@ -1276,7 +1280,7 @@ onUnmounted(() => {
 
         <div class="gh-row">
           <div class="label-with-hint gh-row__label">
-            <label>oclive 聊天软件在哪个仓库</label>
+            <label>{{ t("launcher.versionPage.ocliveRepoLabel") }}</label>
             <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_REPO_OCLIVE" />
           </div>
           <div class="gh-inputs">
@@ -1286,11 +1290,11 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="label-with-hint ver-compare-hint">
-          <span class="ver-subtle-label">本机版本 vs 网上最新</span>
+          <span class="ver-subtle-label">{{ t("launcher.versionPage.compareLabel") }}</span>
           <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_LOCAL_VS_REMOTE" />
         </div>
         <div class="ver-line">
-          <span>本机版本</span>
+          <span>{{ t("launcher.versionPage.localVersion") }}</span>
           <strong>{{ ocliveLocalVer ?? '—' }}</strong>
         </div>
         <div class="ver-line" v-if="ocliveRemote">
@@ -1375,13 +1379,13 @@ onUnmounted(() => {
               </td>
             </tr>
             <tr>
-              <th>Ollama 命令行</th>
+              <th>{{ t("launcher.assistant.tableHeaders.ollamaCli") }}</th>
               <td :class="{ ok: !!envDiag.ollamaVersion, bad: !envDiag.ollamaVersion }">
                 {{ envDiag.ollamaVersion ?? t("launcher.assistant.fallbacks.ollamaCliMissing") }}
               </td>
             </tr>
             <tr>
-              <th>Ollama 服务</th>
+              <th>{{ t("launcher.assistant.tableHeaders.ollamaService") }}</th>
               <td :class="{ ok: envDiag.ollamaApiReachable, bad: !envDiag.ollamaApiReachable }">
                 {{
                   envDiag.ollamaApiReachable
@@ -1391,7 +1395,7 @@ onUnmounted(() => {
               </td>
             </tr>
             <tr>
-              <th>编写器项目</th>
+              <th>{{ t("launcher.assistant.tableHeaders.editorProject") }}</th>
               <td :class="{ ok: envDiag.editorProjectOk && envDiag.editorPackageJson, bad: !envDiag.editorProjectOk }">
                 <template v-if="config.editorMode === 'web'">{{ t("launcher.assistant.projects.editor.webMode") }}</template>
                 <template v-else-if="!config.editorProjectRoot?.trim()">{{ t("launcher.assistant.projects.editor.missingPath") }}</template>
@@ -1401,7 +1405,7 @@ onUnmounted(() => {
               </td>
             </tr>
             <tr>
-              <th>oclive 项目</th>
+              <th>{{ t("launcher.assistant.tableHeaders.ocliveProject") }}</th>
               <td :class="{ ok: envDiag.ocliveProjectOk && envDiag.oclivePackageJson, bad: !envDiag.ocliveProjectOk }">
                 <template v-if="!config.ocliveProjectRoot?.trim()">{{ t("launcher.assistant.projects.oclive.missingPath") }}</template>
                 <template v-else-if="!envDiag.ocliveProjectOk">{{ t("launcher.assistant.projects.oclive.badPath") }}</template>
@@ -1410,7 +1414,7 @@ onUnmounted(() => {
               </td>
             </tr>
             <tr>
-              <th>角色文件夹</th>
+              <th>{{ t("launcher.assistant.tableHeaders.rolesDir") }}</th>
               <td
                 :class="{
                   ok: envDiag.ocliveRolesDirOk,
@@ -1427,33 +1431,36 @@ onUnmounted(() => {
         </table>
 
         <details class="ollama-details">
-          <summary>展开：Ollama 是啥、模型怎么下、和「云端大脑」啥关系</summary>
+          <summary>{{ t("launcher.assistant.ollamaDetails.summary") }}</summary>
           <ul class="ollama-details-list">
             <li>
-              <strong>安装</strong>：到
+              <strong>{{ t("launcher.assistant.ollamaDetails.installStrong") }}</strong>{{ t("launcher.assistant.ollamaDetails.colon") }}
+              {{ t("launcher.assistant.ollamaDetails.installPrefix") }}
               <button type="button" class="linkish inline" @click="openRelease('https://ollama.com/download')">ollama.com</button>
-              下安装包，装完让它在后台跑。Windows 可用 winget 或启动器打包里附带的安装包（可能弹 UAC）。
+              {{ t("launcher.assistant.ollamaDetails.installSuffix") }}
             </li>
             <li>
-              <strong>模型</strong>：装完软件还要单独拉模型。可在 oclive 页装 zip 角色包时顺手拉，或终端执行
-              <code>ollama pull 模型名</code>；列表见
-              <button type="button" class="linkish inline" @click="openRelease('https://ollama.com/library')">模型库</button>。常用推荐
-              <code>qwen2.5:7b</code>。
+              <strong>{{ t("launcher.assistant.ollamaDetails.modelStrong") }}</strong>{{ t("launcher.assistant.ollamaDetails.colon") }}
+              {{ t("launcher.assistant.ollamaDetails.modelPrefix") }}
+              <code>ollama pull {{ t("launcher.assistant.ollamaDetails.modelNamePlaceholder") }}</code>{{ t("launcher.assistant.ollamaDetails.modelMiddle") }}
+              <button type="button" class="linkish inline" @click="openRelease('https://ollama.com/library')">{{ t("launcher.assistant.ollamaDetails.modelLibrary") }}</button>{{ t("launcher.assistant.ollamaDetails.modelSuffix") }}
+              <code>{{ DEFAULT_OLLAMA_MODEL }}</code>{{ t("launcher.assistant.ollamaDetails.punctuationFullStop") }}
             </li>
             <li>
-              <strong>云端</strong>：<code>ollama pull</code> 只管本机；要用 OpenAI 类云端 API，要在角色设置里改「大脑」为 remote，并配环境变量，详见主仓库文档
-              <code>REMOTE_PLUGIN_PROTOCOL.md</code>。
+              <strong>{{ t("launcher.assistant.ollamaDetails.remoteStrong") }}</strong>{{ t("launcher.assistant.ollamaDetails.colon") }}
+              {{ t("launcher.assistant.ollamaDetails.remotePrefix") }}<code>ollama pull</code>{{ t("launcher.assistant.ollamaDetails.remoteMiddle") }}
+              <code>REMOTE_PLUGIN_PROTOCOL.md</code>{{ t("launcher.assistant.ollamaDetails.punctuationFullStop") }}
             </li>
           </ul>
         </details>
 
         <div class="ollama-model-box">
           <div class="section-title-row section-title-row--inline">
-            <strong>Ollama 常用按钮</strong>
-            <HelpHint text="一键安装、拉模型、看本机已有模型；进度在「日志」里筛 ollama 看。" />
+            <strong>{{ t("launcher.assistant.ollamaQuick.title") }}</strong>
+            <HelpHint :text="String(t('launcher.assistant.ollamaQuick.help'))" />
           </div>
           <div class="env-ollama-quick">
-            <span class="env-ollama-quick-label">点一下</span>
+            <span class="env-ollama-quick-label">{{ t("launcher.assistant.ollamaQuick.tapOnce") }}</span>
             <div class="env-ollama-quick-btns">
               <button
                 v-if="bundledOllamaPath"
@@ -1462,7 +1469,7 @@ onUnmounted(() => {
                 :disabled="wingetInstallBusy || pullBusy"
                 @click="launchBundledOllamaInstaller"
               >
-                运行附带 Ollama 安装包
+                {{ t("launcher.assistant.ollamaQuick.runBundledInstaller") }}
               </button>
               <button
                 v-if="wingetAvailable"
@@ -1471,7 +1478,7 @@ onUnmounted(() => {
                 :disabled="wingetInstallBusy || pullBusy"
                 @click="installOllamaViaWinget"
               >
-                一键安装 Ollama（winget）
+                {{ t("launcher.assistant.ollamaQuick.installViaWinget") }}
               </button>
               <button
                 type="button"
@@ -1479,7 +1486,7 @@ onUnmounted(() => {
                 :disabled="pullBusy || wingetInstallBusy"
                 @click="pullRecommendedOllamaModel"
               >
-                一键拉取推荐模型（{{ DEFAULT_OLLAMA_MODEL }}）
+                {{ t("launcher.assistant.ollamaQuick.pullRecommended", { model: DEFAULT_OLLAMA_MODEL }) }}
               </button>
               <button
                 type="button"
@@ -1487,125 +1494,126 @@ onUnmounted(() => {
                 :disabled="pullBusy || wingetInstallBusy"
                 @click="refreshOllamaLocalModelsList"
               >
-                刷新本机已拉取列表
+                {{ t("launcher.assistant.ollamaQuick.refreshLocalList") }}
               </button>
             </div>
             <p v-if="ollamaLocalModels.length" class="hint tiny env-ollama-model-chips">
-              本机已有：<code>{{ ollamaLocalModels.join('、') }}</code>
+              {{ t("launcher.assistant.ollamaQuick.localModelsPrefix") }}<code>{{ ollamaLocalModels.join('、') }}</code>
             </p>
             <p v-else class="hint tiny env-ollama-model-chips">
-              要先开 Ollama 再点「刷新」，才会列出模型。
+              {{ t("launcher.assistant.ollamaQuick.localModelsEmpty") }}
             </p>
           </div>
         </div>
 
         <p class="hint assistant-links">
-          <button type="button" class="linkish" @click="openRelease('https://nodejs.org/')">Node.js 下载</button>
+          <button type="button" class="linkish" @click="openRelease('https://nodejs.org/')">{{ t("launcher.assistant.links.nodeDownload") }}</button>
           ·
-          <button type="button" class="linkish" @click="openRelease('https://ollama.com/download')">Ollama 下载</button>
+          <button type="button" class="linkish" @click="openRelease('https://ollama.com/download')">{{ t("launcher.assistant.links.ollamaDownload") }}</button>
           ·
-          <button type="button" class="linkish" @click="openRelease('https://github.com/ollama/ollama')">Ollama 文档</button>
+          <button type="button" class="linkish" @click="openRelease('https://github.com/ollama/ollama')">{{ t("launcher.assistant.links.ollamaDocs") }}</button>
         </p>
       </section>
 
     <div v-else-if="activeNav === 'launch-oclive'" class="view-panel app-launch-page app-launch-page--oclive">
       <p class="apps-terminal-banner">
-        在本页启动 <strong>oclive</strong>（含 npm 开发模式）时，<strong>标准输出会进下方摘要与「日志」页</strong>；启动器已尽量隐藏命令行黑窗（Windows）。安装向导与软件自身窗口仍会弹出。
+        {{ t("launcher.launchOclive.banner.prefix") }} <strong>oclive</strong>{{ t("launcher.launchOclive.banner.middle") }}
+        <strong>{{ t("launcher.launchOclive.banner.strong") }}</strong>{{ t("launcher.launchOclive.banner.suffix") }}
       </p>
       <div class="apps-launch-stack">
         <section class="card card--primary-app card--launch-app card--hero-oclive">
           <div class="section-title-row section-title-row--launch">
-            <h2>oclive（聊天窗口）</h2>
+            <h2>{{ t("launcher.launchOclive.title") }}</h2>
             <HelpHint
-              text="这就是真正「聊天」的软件。上面填角色文件夹、选大脑，下面告诉启动器 exe 或源码在哪。"
+              :text="String(t('launcher.launchOclive.help'))"
             />
           </div>
 
           <div class="app-feature-block">
-            <h3 class="app-feature-block__title">① 角色与资源</h3>
+            <h3 class="app-feature-block__title">{{ t("launcher.launchOclive.sections.roles.title") }}</h3>
             <div class="roles-block roles-block--in-launch">
               <div class="label-with-hint">
-                <label>角色包根目录</label>
+                <label>{{ t("launcher.launchOclive.sections.roles.rootLabel") }}</label>
                 <HelpHint
-                  text="填「很多个角色文件夹」的共同上一级。里面通常是「角色名/」下面再有一堆配置。不填也能启动，但不会自动帮你指到磁盘上的角色。"
+                  :text="String(t('launcher.launchOclive.sections.roles.rootHelp'))"
                 />
               </div>
-              <p class="hint tiny">一堆 <code>角色id</code> 子文件夹的<strong>父目录</strong>；启动器会注入给 oclive。</p>
+              <p class="hint tiny">{{ t("launcher.launchOclive.sections.roles.rootHintPrefix") }} <code>{{ t("launcher.launchOclive.sections.roles.roleId") }}</code> {{ t("launcher.launchOclive.sections.roles.rootHintSuffix") }}</p>
               <div class="row">
-                <input v-model="config.ocliveRolesDir" placeholder="例如 D:\oclivenewnew\roles" />
-                <button type="button" class="btn" @click="pickRolesRoot">浏览…</button>
-                <button type="button" class="btn" @click="fillSuggestedRolesDir">从仓库猜</button>
+                <input v-model="config.ocliveRolesDir" :placeholder="String(t('launcher.launchOclive.sections.roles.rootPlaceholder'))" />
+                <button type="button" class="btn" @click="pickRolesRoot">{{ t("common.browse") }}</button>
+                <button type="button" class="btn" @click="fillSuggestedRolesDir">{{ t("launcher.common.suggestFromRepo") }}</button>
               </div>
-              <p class="hint tiny">编写器导出的 zip / ocpak 可装到此目录。</p>
+              <p class="hint tiny">{{ t("launcher.launchOclive.sections.roles.installHint") }}</p>
               <div class="row role-install-row">
-                <button type="button" class="btn primary" @click="beginInstallRolePack">用 zip 装角色包…</button>
+                <button type="button" class="btn primary" @click="beginInstallRolePack">{{ t("launcher.launchOclive.sections.roles.installZip") }}</button>
               </div>
             </div>
           </div>
 
           <div class="app-feature-block">
-            <h3 class="app-feature-block__title">② 对话大脑（LLM）</h3>
+            <h3 class="app-feature-block__title">{{ t("launcher.launchOclive.sections.llm.title") }}</h3>
             <div class="llm-backend-block llm-backend-block--in-launch">
               <div class="label-with-hint">
-                <label>用本机还是云端</label>
+                <label>{{ t("launcher.launchOclive.sections.llm.modeLabel") }}</label>
                 <HelpHint
-                  text="本机：走 Ollama 里的模型。云端：填你自己搭好的接口地址（JSON-RPC），适合不用本机显卡的情况。"
+                  :text="String(t('launcher.launchOclive.sections.llm.modeHelp'))"
                 />
               </div>
-              <p class="hint tiny">选「本机」即 Ollama；「云端」须填下方地址。</p>
+              <p class="hint tiny">{{ t("launcher.launchOclive.sections.llm.modeHint") }}</p>
               <div class="mode">
-                <label><input v-model="config.ocliveLlmMode" type="radio" value="ollama" /> 本机 Ollama</label>
-                <label><input v-model="config.ocliveLlmMode" type="radio" value="remote" /> 云端接口</label>
+                <label><input v-model="config.ocliveLlmMode" type="radio" value="ollama" /> {{ t("launcher.launchOclive.sections.llm.localOllama") }}</label>
+                <label><input v-model="config.ocliveLlmMode" type="radio" value="remote" /> {{ t("launcher.launchOclive.sections.llm.remoteApi") }}</label>
               </div>
               <template v-if="config.ocliveLlmMode === 'remote'">
-                <label>云端地址（JSON-RPC）</label>
+                <label>{{ t("launcher.launchOclive.sections.llm.remoteUrlLabel") }}</label>
                 <input
                   v-model="config.ocliveRemoteLlmUrl"
-                  placeholder="例如 http://127.0.0.1:8765/rpc"
+                  :placeholder="String(t('launcher.common.placeholders.rpcUrl'))"
                   autocomplete="off"
                 />
-                <label>令牌 Token（可选）</label>
+                <label>{{ t("launcher.launchOclive.sections.llm.remoteTokenLabel") }}</label>
                 <input
                   v-model="config.ocliveRemoteLlmToken"
                   type="password"
                   autocomplete="off"
-                  placeholder="可选"
+                  :placeholder="String(t('common.optional'))"
                 />
-                <label>超时毫秒（可选）</label>
+                <label>{{ t("launcher.launchOclive.sections.llm.remoteTimeoutLabel") }}</label>
                 <input
                   v-model="config.ocliveRemoteLlmTimeoutMs"
-                  placeholder="例如 120000"
+                  :placeholder="String(t('launcher.common.placeholders.timeoutMs'))"
                   inputmode="numeric"
                 />
               </template>
-              <label>模块侧车地址（可选，memory/emotion/event/prompt 共用）</label>
+              <label>{{ t("launcher.launchOclive.sections.llm.sidecarUrlLabel") }}</label>
               <input
                 v-model="config.ocliveRemotePluginUrl"
-                placeholder="例如 http://127.0.0.1:8765/rpc"
+                :placeholder="String(t('launcher.common.placeholders.rpcUrl'))"
                 autocomplete="off"
               />
-              <label>模块侧车 Token（可选）</label>
+              <label>{{ t("launcher.launchOclive.sections.llm.sidecarTokenLabel") }}</label>
               <input
                 v-model="config.ocliveRemotePluginToken"
                 type="password"
                 autocomplete="off"
-                placeholder="可选"
+                :placeholder="String(t('common.optional'))"
               />
-              <label>模块侧车超时毫秒（可选）</label>
+              <label>{{ t("launcher.launchOclive.sections.llm.sidecarTimeoutLabel") }}</label>
               <input
                 v-model="config.ocliveRemotePluginTimeoutMs"
-                placeholder="例如 8000"
+                :placeholder="String(t('launcher.common.placeholders.timeoutMsShort'))"
                 inputmode="numeric"
               />
             </div>
           </div>
 
           <div class="app-feature-block">
-            <h3 class="app-feature-block__title">③ 获取 oclive 安装包</h3>
-            <p class="hint tiny">不知道 owner / repo 怎么填？去 GitHub 打开仓库首页，复制地址栏，在下面粘贴后点「填入」，与「版本与下载」页共用同一配置。</p>
+            <h3 class="app-feature-block__title">{{ t("launcher.launchOclive.sections.download.title") }}</h3>
+            <p class="hint tiny">{{ t("launcher.launchOclive.sections.download.hint") }}</p>
             <div class="gh-paste-block gh-paste-block--inline">
               <div class="label-with-hint">
-                <span class="gh-paste-inline-label">粘贴仓库网址</span>
+                <span class="gh-paste-inline-label">{{ t("launcher.launchOclive.sections.download.pasteRepoUrl") }}</span>
                 <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
               </div>
               <div class="row">
@@ -1616,12 +1624,12 @@ onUnmounted(() => {
                   autocomplete="off"
                   @keydown.enter.prevent="applyOcliveRepoFromPastedUrl"
                 />
-                <button type="button" class="btn" @click="applyOcliveRepoFromPastedUrl">填入</button>
+                <button type="button" class="btn" @click="applyOcliveRepoFromPastedUrl">{{ t("launcher.versionPage.applyOwnerRepo") }}</button>
               </div>
             </div>
             <div class="gh-release-dl gh-release-dl--compact">
               <div class="label-with-hint gh-release-dl__label-row">
-                <span class="gh-release-dl__label">GitHub Release（与「版本」里 oclive 仓库一致）</span>
+                <span class="gh-release-dl__label">{{ t("launcher.launchOclive.sections.download.ghReleaseLabel") }}</span>
                 <HelpHint :paragraphs="LAUNCHER_HINT_OCLIVE_GH_DL" />
               </div>
               <div class="row gh-release-dl-row">
@@ -1631,10 +1639,10 @@ onUnmounted(() => {
                   :disabled="ocliveGhBusy"
                   @click="refreshOcliveGhAssets"
                 >
-                  列出附件
+                  {{ t("launcher.common.gh.listAssets") }}
                 </button>
                 <select v-model="ocliveGhAssetUrl" class="gh-asset-select">
-                  <option value="">选择文件…</option>
+                  <option value="">{{ t("launcher.common.gh.pickFile") }}</option>
                   <option
                     v-for="a in ocliveGhAssets"
                     :key="a.browserDownloadUrl"
@@ -1649,56 +1657,56 @@ onUnmounted(() => {
                   :disabled="ocliveGhBusy || !ocliveGhAssetUrl"
                   @click="downloadOcliveFromGh"
                 >
-                  下载到…
+                  {{ t("launcher.common.gh.downloadTo") }}
                 </button>
               </div>
               <p class="hint tiny">
-                另存为选路径；zip 会解压到「文件名_extracted」并尝试填入 exe。
+                {{ t("launcher.launchOclive.sections.download.saveAsHint") }}
               </p>
             </div>
           </div>
 
           <div class="app-feature-block">
-            <h3 class="app-feature-block__title">④ 启动方式与路径</h3>
+            <h3 class="app-feature-block__title">{{ t("launcher.launchOclive.sections.runMode.title") }}</h3>
             <div class="mode mode--wrap">
-              <label><input v-model="config.ocliveMode" type="radio" value="dev" /> 本地源码（npm）</label>
-              <label><input v-model="config.ocliveMode" type="radio" value="exe" /> 已安装的 exe</label>
+              <label><input v-model="config.ocliveMode" type="radio" value="dev" /> {{ t("launcher.launchOclive.sections.runMode.dev") }}</label>
+              <label><input v-model="config.ocliveMode" type="radio" value="exe" /> {{ t("launcher.launchOclive.sections.runMode.exe") }}</label>
             </div>
             <template v-if="config.ocliveMode === 'dev'">
-              <label>源码根目录</label>
+              <label>{{ t("launcher.launchOclive.sections.runMode.sourceRoot") }}</label>
               <div class="row">
-                <input v-model="config.ocliveProjectRoot" placeholder="例如 D:\oclivenewnew" />
-                <button type="button" class="btn" @click="pickOcliveRoot">浏览…</button>
+                <input v-model="config.ocliveProjectRoot" :placeholder="String(t('launcher.launchOclive.sections.runMode.sourceRootPlaceholder'))" />
+                <button type="button" class="btn" @click="pickOcliveRoot">{{ t("common.browse") }}</button>
               </div>
-              <label>npm 脚本名</label>
-              <input v-model="config.ocliveNpmScript" placeholder="一般写 tauri:dev" />
+              <label>{{ t("launcher.launchOclive.sections.runMode.npmScriptLabel") }}</label>
+              <input v-model="config.ocliveNpmScript" :placeholder="String(t('launcher.launchOclive.sections.runMode.npmScriptPlaceholder'))" />
             </template>
             <template v-else>
               <div class="label-with-hint">
-                <label>oclive.exe 路径</label>
+                <label>{{ t("launcher.launchOclive.sections.runMode.exePathLabel") }}</label>
                 <HelpHint :paragraphs="LAUNCHER_HINT_EXE_PATH_PASTE" />
               </div>
-              <p class="hint tiny">可直接把资源管理器地址栏或快捷方式里的<strong>完整路径</strong>粘贴进框内；也可点「识别框内路径」。</p>
+              <p class="hint tiny">{{ t("launcher.launchOclive.sections.runMode.exePathHint") }}</p>
               <div class="row">
                 <input
                   v-model="config.ocliveExe"
-                  placeholder="例如 C:\...\oclive.exe（可粘贴）"
+                  :placeholder="String(t('launcher.launchOclive.sections.runMode.exePathPlaceholder'))"
                   autocomplete="off"
                   @paste="onOcliveExeInputPaste"
                 />
-                <button type="button" class="btn" @click="pickOcliveExe">浏览…</button>
-                <button type="button" class="btn" @click="applyOcliveExeFromField">识别框内路径</button>
+                <button type="button" class="btn" @click="pickOcliveExe">{{ t("common.browse") }}</button>
+                <button type="button" class="btn" @click="applyOcliveExeFromField">{{ t("launcher.common.recognizePath") }}</button>
               </div>
             </template>
           </div>
 
           <div class="app-feature-block app-feature-block--run">
-            <h3 class="app-feature-block__title">⑤ 运行</h3>
+            <h3 class="app-feature-block__title">{{ t("launcher.launchOclive.sections.run.title") }}</h3>
             <div class="actions actions--launch">
-              <button type="button" class="btn primary btn-launch" @click="spawnOclive">启动 oclive</button>
-              <button type="button" class="btn danger btn-launch" @click="stopOclive">结束进程</button>
+              <button type="button" class="btn primary btn-launch" @click="spawnOclive">{{ t("launcher.launchOclive.sections.run.start") }}</button>
+              <button type="button" class="btn danger btn-launch" @click="stopOclive">{{ t("launcher.launchOclive.sections.run.stop") }}</button>
               <button type="button" class="btn btn-launch-secondary" @click="focusLogsFilter('oclive')">
-                在「日志」里只看 oclive
+                {{ t("launcher.launchOclive.sections.run.filterLogs") }}
               </button>
             </div>
           </div>
@@ -1707,41 +1715,43 @@ onUnmounted(() => {
 
       <section class="card apps-log-preview-card">
         <div class="apps-log-preview-head">
-          <h3 class="apps-log-preview-title">oclive 输出摘要</h3>
+          <h3 class="apps-log-preview-title">{{ t("launcher.launchOclive.preview.title") }}</h3>
           <div class="apps-log-preview-tools">
-            <button type="button" class="btn" @click="focusLogsFilter('all')">打开完整日志页</button>
+            <button type="button" class="btn" @click="focusLogsFilter('all')">{{ t("launcher.launchOclive.preview.openFullLogs") }}</button>
           </div>
         </div>
         <pre
           ref="appsLogPreviewEl"
           class="apps-log-preview"
           :class="{ 'apps-log-preview--empty': !ocliveLogPreviewText.trim() }"
-        >{{ ocliveLogPreviewText || '尚无输出；启动 oclive 后这里会滚动显示最近几行。' }}</pre>
+        >{{ ocliveLogPreviewText || t("launcher.launchOclive.preview.empty") }}</pre>
         <p class="hint tiny apps-log-preview-foot">
-          完整历史与筛选（ollama、winget 等）在左侧「日志」。
+          {{ t("launcher.launchOclive.preview.foot") }}
         </p>
       </section>
     </div>
 
     <div v-else-if="activeNav === 'launch-editor'" class="view-panel app-launch-page app-launch-page--editor">
       <p class="apps-terminal-banner apps-terminal-banner--editor">
-        在本页打开 <strong>角色包编写器</strong> 时，npm / exe 的<strong>输出同样汇总在下方与「日志」页</strong>；用「网页」模式则会在系统浏览器中打开。
+        {{ t("launcher.launchEditor.banner.prefix") }} <strong>{{ t("launcher.launchEditor.name") }}</strong>
+        {{ t("launcher.launchEditor.banner.middle") }}
+        <strong>{{ t("launcher.launchEditor.banner.strong") }}</strong>{{ t("launcher.launchEditor.banner.suffix") }}
       </p>
       <div class="apps-launch-stack">
         <section class="card card--launch-app card--hero-editor">
           <div class="section-title-row section-title-row--launch">
-            <h2>角色包编写器</h2>
+            <h2>{{ t("launcher.launchEditor.name") }}</h2>
             <HelpHint
-              text="用来写包内核心性格档案与世界观、导出 zip；运行时的可变性格档案由 oclive 内模型维护，此处不可编辑。一般用浏览器打开官网就够；要改源码再选下面两种。"
+              :text="String(t('launcher.launchEditor.help'))"
             />
           </div>
 
           <div class="app-feature-block">
-            <h3 class="app-feature-block__title">① 获取编写器</h3>
-            <p class="hint tiny">复制 GitHub 上<strong>仓库首页</strong>的网址，在下面粘贴并点「填入」，即可同步 owner / repo（与「版本与下载」一致）。</p>
+            <h3 class="app-feature-block__title">{{ t("launcher.launchEditor.sections.download.title") }}</h3>
+            <p class="hint tiny">{{ t("launcher.launchEditor.sections.download.hint") }}</p>
             <div class="gh-paste-block gh-paste-block--inline">
               <div class="label-with-hint">
-                <span class="gh-paste-inline-label">粘贴仓库网址</span>
+                <span class="gh-paste-inline-label">{{ t("launcher.launchEditor.sections.download.pasteRepoUrl") }}</span>
                 <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
               </div>
               <div class="row">
@@ -1752,12 +1762,12 @@ onUnmounted(() => {
                   autocomplete="off"
                   @keydown.enter.prevent="applyEditorRepoFromPastedUrl"
                 />
-                <button type="button" class="btn" @click="applyEditorRepoFromPastedUrl">填入</button>
+                <button type="button" class="btn" @click="applyEditorRepoFromPastedUrl">{{ t("launcher.versionPage.applyOwnerRepo") }}</button>
               </div>
             </div>
             <div class="gh-release-dl gh-release-dl--compact">
               <div class="label-with-hint gh-release-dl__label-row">
-                <span class="gh-release-dl__label">GitHub Release（与「版本」里编写器仓库一致）</span>
+                <span class="gh-release-dl__label">{{ t("launcher.launchEditor.sections.download.ghReleaseLabel") }}</span>
                 <HelpHint :paragraphs="LAUNCHER_HINT_EDITOR_GH_DL" />
               </div>
               <div class="row gh-release-dl-row">
@@ -1767,10 +1777,10 @@ onUnmounted(() => {
                   :disabled="editorGhBusy"
                   @click="refreshEditorGhAssets"
                 >
-                  列出附件
+                  {{ t("launcher.common.gh.listAssets") }}
                 </button>
                 <select v-model="editorGhAssetUrl" class="gh-asset-select">
-                  <option value="">选择文件…</option>
+                  <option value="">{{ t("launcher.common.gh.pickFile") }}</option>
                   <option
                     v-for="a in editorGhAssets"
                     :key="a.browserDownloadUrl"
@@ -1785,67 +1795,67 @@ onUnmounted(() => {
                   :disabled="editorGhBusy || !editorGhAssetUrl"
                   @click="downloadEditorFromGh"
                 >
-                  下载到…
+                  {{ t("launcher.common.gh.downloadTo") }}
                 </button>
               </div>
-              <p class="hint tiny">另存为选路径；便携 zip 会解压并尝试填入 exe。</p>
+              <p class="hint tiny">{{ t("launcher.launchEditor.sections.download.saveAsHint") }}</p>
             </div>
           </div>
 
           <div class="app-feature-block">
-            <h3 class="app-feature-block__title">② 打开方式</h3>
+            <h3 class="app-feature-block__title">{{ t("launcher.launchEditor.sections.open.title") }}</h3>
             <div class="mode mode--wrap">
-              <label><input v-model="config.editorMode" type="radio" value="web" /> 网页</label>
-              <label><input v-model="config.editorMode" type="radio" value="dev" /> 本地源码（npm）</label>
-              <label><input v-model="config.editorMode" type="radio" value="exe" /> 本地 exe</label>
+              <label><input v-model="config.editorMode" type="radio" value="web" /> {{ t("launcher.launchEditor.sections.open.web") }}</label>
+              <label><input v-model="config.editorMode" type="radio" value="dev" /> {{ t("launcher.launchEditor.sections.open.dev") }}</label>
+              <label><input v-model="config.editorMode" type="radio" value="exe" /> {{ t("launcher.launchEditor.sections.open.exe") }}</label>
             </div>
             <template v-if="config.editorMode === 'web'">
-              <label>网页地址（可空）</label>
+              <label>{{ t("launcher.launchEditor.sections.open.webUrlLabel") }}</label>
               <input
                 v-model="config.editorWebUrl"
                 type="url"
                 autocomplete="off"
-                :placeholder="`不填：${editorPagesUrlPreview}`"
+                :placeholder="String(t('launcher.launchEditor.sections.open.webUrlPlaceholder', { url: editorPagesUrlPreview }))"
               />
-              <p class="hint tiny">空则用线上 Pages；本地调试可填 <code>http://127.0.0.1:…</code>。</p>
+              <p class="hint tiny">{{ t("launcher.launchEditor.sections.open.webHint") }}</p>
             </template>
             <template v-else-if="config.editorMode === 'dev'">
-              <label>源码根目录</label>
+              <label>{{ t("launcher.launchEditor.sections.open.sourceRoot") }}</label>
               <div class="row">
-                <input v-model="config.editorProjectRoot" placeholder="例如 D:\oclive-pack-editor" />
-                <button type="button" class="btn" @click="pickEditorRoot">浏览…</button>
+                <input v-model="config.editorProjectRoot" :placeholder="String(t('launcher.launchEditor.sections.open.sourceRootPlaceholder'))" />
+                <button type="button" class="btn" @click="pickEditorRoot">{{ t("common.browse") }}</button>
               </div>
-              <label>npm 脚本名</label>
-              <input v-model="config.editorNpmScript" placeholder="tauri:dev" />
+              <label>{{ t("launcher.launchEditor.sections.open.npmScriptLabel") }}</label>
+              <input v-model="config.editorNpmScript" :placeholder="String(t('launcher.launchEditor.sections.open.npmScriptPlaceholder'))" />
             </template>
             <template v-else>
               <div class="label-with-hint">
-                <label>编写器 exe</label>
+                <label>{{ t("launcher.launchEditor.sections.open.exePathLabel") }}</label>
                 <HelpHint :paragraphs="LAUNCHER_HINT_EXE_PATH_PASTE" />
               </div>
-              <p class="hint tiny">粘贴以 .exe 结尾的完整路径后会自动切到「本地 exe」；也可点「识别框内路径」。</p>
+              <p class="hint tiny">{{ t("launcher.launchEditor.sections.open.exePathHint") }}</p>
               <div class="row">
                 <input
                   v-model="config.editorExe"
-                  placeholder="例如 …\oclive-pack-editor.exe（可粘贴）"
+                  :placeholder="String(t('launcher.launchEditor.sections.open.exePathPlaceholder'))"
                   autocomplete="off"
                   @paste="onEditorExeInputPaste"
                 />
-                <button type="button" class="btn" @click="pickEditorExe">浏览…</button>
-                <button type="button" class="btn" @click="applyEditorExeFromField">识别框内路径</button>
+                <button type="button" class="btn" @click="pickEditorExe">{{ t("common.browse") }}</button>
+                <button type="button" class="btn" @click="applyEditorExeFromField">{{ t("launcher.common.recognizePath") }}</button>
               </div>
             </template>
           </div>
 
           <div class="app-feature-block app-feature-block--run">
-            <h3 class="app-feature-block__title">③ 运行</h3>
+            <h3 class="app-feature-block__title">{{ t("launcher.launchEditor.sections.run.title") }}</h3>
             <div class="actions actions--launch">
               <button type="button" class="btn primary btn-launch" @click="spawnEditor">
-                {{ config.editorMode === 'web' ? '在浏览器打开' : '启动编写器' }}
+                {{ config.editorMode === 'web' ? t("launcher.launchEditor.sections.run.openInBrowser") : t("launcher.launchEditor.sections.run.launchEditor") }}
               </button>
-              <button type="button" class="btn danger btn-launch" @click="stopEditor">结束进程</button>
+              <button type="button" class="btn danger btn-launch" @click="stopEditor">{{ t("launcher.launchEditor.sections.run.stop") }}</button>
               <button type="button" class="btn btn-launch-secondary" @click="focusLogsFilter('editor')">
-                在「日志」里只看编写器
+                {{ t("launcher.launchEditor.sections.run.filterLogs") }}
               </button>
             </div>
           </div>
@@ -1854,18 +1864,18 @@ onUnmounted(() => {
 
       <section class="card apps-log-preview-card">
         <div class="apps-log-preview-head">
-          <h3 class="apps-log-preview-title">编写器输出摘要</h3>
+          <h3 class="apps-log-preview-title">{{ t("launcher.launchEditor.preview.title") }}</h3>
           <div class="apps-log-preview-tools">
-            <button type="button" class="btn" @click="focusLogsFilter('all')">打开完整日志页</button>
+            <button type="button" class="btn" @click="focusLogsFilter('all')">{{ t("launcher.launchEditor.preview.openFullLogs") }}</button>
           </div>
         </div>
         <pre
           ref="appsLogPreviewEl"
           class="apps-log-preview"
           :class="{ 'apps-log-preview--empty': !editorLogPreviewText.trim() }"
-        >{{ editorLogPreviewText || '尚无输出；启动编写器后这里会滚动显示最近几行。' }}</pre>
+        >{{ editorLogPreviewText || t("launcher.launchEditor.preview.empty") }}</pre>
         <p class="hint tiny apps-log-preview-foot">
-          完整历史与筛选在左侧「日志」。
+          {{ t("launcher.launchEditor.preview.foot") }}
         </p>
       </section>
     </div>
@@ -1873,20 +1883,20 @@ onUnmounted(() => {
     <section v-else-if="activeNav === 'logs'" class="view-panel card log-card">
       <div class="log-head">
         <div class="section-title-row log-title-row">
-          <h2>后台日志</h2>
+          <h2>{{ t("launcher.logsPage.title") }}</h2>
           <HelpHint :paragraphs="LAUNCHER_HINT_LOGS" />
         </div>
         <div class="log-tools">
-          <label>只看</label>
+          <label>{{ t("launcher.logsPage.onlyShow") }}</label>
           <select v-model="logFilter">
-            <option value="all">全部</option>
-            <option value="editor">编写器</option>
+            <option value="all">{{ t("launcher.logsPage.filters.all") }}</option>
+            <option value="editor">{{ t("launcher.logsPage.filters.editor") }}</option>
             <option value="oclive">oclive</option>
-            <option value="ollama">拉模型</option>
-            <option value="winget">winget 安装</option>
-            <option value="bundled-ollama">附带安装包</option>
+            <option value="ollama">{{ t("launcher.logsPage.filters.ollama") }}</option>
+            <option value="winget">{{ t("launcher.logsPage.filters.winget") }}</option>
+            <option value="bundled-ollama">{{ t("launcher.logsPage.filters.bundledOllama") }}</option>
           </select>
-          <button type="button" class="btn" @click="clearLogs">清空</button>
+          <button type="button" class="btn" @click="clearLogs">{{ t("launcher.logsPage.clear") }}</button>
         </div>
       </div>
       <pre class="log">{{ logPanelText }}</pre>
@@ -1902,14 +1912,14 @@ onUnmounted(() => {
         @click.self="cancelInstallRolePackModal"
       >
         <div class="install-modal-panel card" @click.stop>
-          <h2 id="install-modal-title">安装角色包：选择大脑（Ollama 模型）</h2>
+          <h2 id="install-modal-title">{{ t("launcher.installModal.title") }}</h2>
           <p v-if="pendingZipPath" class="hint tiny modal-zip-path">
             {{ pendingZipPath }}
           </p>
-          <label class="modal-label">使用哪个模型？</label>
+          <label class="modal-label">{{ t("launcher.installModal.modelLabel") }}</label>
           <p class="hint tiny">
-            默认推荐 <code>{{ DEFAULT_OLLAMA_MODEL }}</code>；下列为当前本机已拉取的模型（来自
-            <code>ollama list</code> / API）。云端 API 不走 Ollama，见环境页说明。
+            {{ t("launcher.installModal.modelHintPrefix") }} <code>{{ DEFAULT_OLLAMA_MODEL }}</code
+            >{{ t("launcher.installModal.modelHintSuffix") }}
           </p>
           <select v-model="installModelSelect" class="modal-select">
             <option v-for="opt in installModelOptions" :key="opt.value" :value="opt.value">
@@ -1917,12 +1927,12 @@ onUnmounted(() => {
             </option>
           </select>
           <div v-if="installModelSelect === MODEL_OPTION_CUSTOM" class="modal-custom">
-            <label>自定义模型名（与 <code>ollama pull</code> 一致）</label>
-            <input v-model="installCustomModel" type="text" placeholder="例如 llama3.2:latest" />
+            <label>{{ t("launcher.installModal.customModelLabel") }}</label>
+            <input v-model="installCustomModel" type="text" :placeholder="String(t('launcher.installModal.customModelPlaceholder'))" />
           </div>
           <label class="modal-check">
             <input v-model="installOverwriteModel" type="checkbox" />
-            若 <code>settings.json</code> 里已有 <code>model</code>，仍覆盖为所选模型
+            {{ t("launcher.installModal.overwriteModel") }}
           </label>
           <div class="modal-actions">
             <button
@@ -1931,7 +1941,7 @@ onUnmounted(() => {
               :disabled="pullBusy || wingetInstallBusy"
               @click="refreshOllamaLocalModelsList"
             >
-              刷新本机列表
+              {{ t("launcher.installModal.refreshLocalList") }}
             </button>
             <button
               type="button"
@@ -1939,16 +1949,16 @@ onUnmounted(() => {
               :disabled="pullBusy || installBusy || wingetInstallBusy"
               @click="pullSelectedOllamaModel"
             >
-              拉取所选模型（ollama pull）
+              {{ t("launcher.installModal.pullSelected") }}
             </button>
-            <button type="button" class="btn" @click="cancelInstallRolePackModal">取消</button>
+            <button type="button" class="btn" @click="cancelInstallRolePackModal">{{ t("common.cancel") }}</button>
             <button
               type="button"
               class="btn primary"
               :disabled="installBusy || pullBusy"
               @click="confirmInstallRolePack"
             >
-              解压并写入
+              {{ t("launcher.installModal.extractAndWrite") }}
             </button>
           </div>
         </div>
