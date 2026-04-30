@@ -935,11 +935,11 @@ function cycleTheme() {
 const themeCycleLabel = computed(() => {
   switch (themePreference.value) {
     case 'light':
-      return '浅色'
+      return String(t('launcher.titlebar.theme.light'))
     case 'dark':
-      return '深色'
+      return String(t('launcher.titlebar.theme.dark'))
     default:
-      return '跟随系统'
+      return String(t('launcher.titlebar.theme.system'))
   }
 })
 
@@ -1045,28 +1045,28 @@ onUnmounted(() => {
       <header class="titlebar">
         <div class="titlebar-inner">
           <div>
-            <p class="kicker">oclive · 工具链</p>
+            <p class="kicker">{{ t("launcher.titlebar.kicker") }}</p>
             <h1>{{ currentViewLabel }}</h1>
             <p class="sub">
               <template v-if="activeNav === 'start'">
-                新手指引、开发者公告与创作者公告（包内寄语，只读）都在本页。
+                {{ t("launcher.viewSub.start") }}
               </template>
               <template v-else-if="activeNav === 'version'">
-                对照网上发布的版本号，顺便一键打开下载页。
+                {{ t("launcher.viewSub.version") }}
               </template>
               <template v-else-if="activeNav === 'launch-oclive'">
-                配角色目录、对话大脑、安装包与启动路径；输出在下方摘要与「日志」里查看。
+                {{ t("launcher.viewSub.launchOclive") }}
               </template>
               <template v-else-if="activeNav === 'launch-editor'">
-                下载或指定编写器（网页 / 源码 / exe），再一键打开；日志同样汇总在下方与「日志」页。
+                {{ t("launcher.viewSub.launchEditor") }}
               </template>
               <template v-else-if="activeNav === 'assistant'">
-                看看 Node、Ollama、文件夹路径对不对；不对就按提示装或改路径。
+                {{ t("launcher.viewSub.assistant") }}
               </template>
-              <template v-else>软件在后台打印的信息都在这里，出问题先来这里瞄一眼。</template>
+              <template v-else>{{ t("launcher.viewSub.other") }}</template>
             </p>
           </div>
-          <div class="titlebar-actions" role="toolbar" aria-label="外观与字号">
+          <div class="titlebar-actions" role="toolbar" :aria-label="String(t('launcher.titlebar.toolsAria'))">
             <label class="shell-locale">
               <span class="sr-only">{{ t("common.language") }}</span>
               <select
@@ -1079,19 +1079,19 @@ onUnmounted(() => {
                 <option value="en-US">{{ t("common.enUS") }}</option>
               </select>
             </label>
-            <div class="shell-scale" aria-label="界面大小">
-              <button type="button" class="shell-tool-btn" title="缩小" aria-label="缩小界面" @click="bumpScale(-1)">
+            <div class="shell-scale" :aria-label="String(t('launcher.titlebar.scaleAria'))">
+              <button type="button" class="shell-tool-btn" :title="String(t('launcher.titlebar.shrink'))" :aria-label="String(t('launcher.titlebar.shrinkAria'))" @click="bumpScale(-1)">
                 A−
               </button>
-              <span class="shell-scale-value" :title="'相对默认字号：' + scaleLabel">{{ scaleLabel }}</span>
-              <button type="button" class="shell-tool-btn" title="放大" aria-label="放大界面" @click="bumpScale(1)">
+              <span class="shell-scale-value" :title="String(t('launcher.titlebar.relativeScaleTitle', { label: scaleLabel }))">{{ scaleLabel }}</span>
+              <button type="button" class="shell-tool-btn" :title="String(t('launcher.titlebar.enlarge'))" :aria-label="String(t('launcher.titlebar.enlargeAria'))" @click="bumpScale(1)">
                 A+
               </button>
             </div>
             <button
               type="button"
               class="shell-tool-btn shell-theme-btn"
-              :title="`主题：${themeCycleLabel}（点击切换）`"
+              :title="String(t('launcher.titlebar.themeTitle', { label: themeCycleLabel }))"
               @click="cycleTheme"
             >
               {{ themeCycleLabel === '跟随系统' ? '◐' : themeCycleLabel === '深色' ? '🌙' : '☀️' }}
@@ -1100,10 +1100,10 @@ onUnmounted(() => {
             <button
               type="button"
               class="btn primary"
-              title="把左侧各页的路径、GitHub 仓库、运行模式等写入本机配置文件；主题与界面字号保存在浏览器本地，会即时生效。"
+              :title="String(t('launcher.titlebar.saveConfigTitle'))"
               @click="saveConfig"
             >
-              保存配置
+              {{ t("launcher.titlebar.saveConfig") }}
             </button>
             <HelpHint class="titlebar-tools-help" :paragraphs="LAUNCHER_HINT_TITLEBAR_TOOLS" />
           </div>
