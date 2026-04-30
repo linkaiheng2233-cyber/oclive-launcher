@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import HelpHint from '../components/HelpHint.vue'
 import { DEVELOPER_ANNOUNCE_HINT_PARAGRAPHS } from './helpCopy'
 
@@ -14,37 +15,39 @@ const emit = defineEmits<{
   save: []
   fetch: []
 }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
   <section class="card announce-board announce-board--developer">
     <div class="section-title-row">
-      <h2>开发者公告</h2>
+      <h2>{{ t("developerAnnouncements.title") }}</h2>
       <HelpHint :paragraphs="[...DEVELOPER_ANNOUNCE_HINT_PARAGRAPHS]" />
     </div>
-    <p class="hint tiny">只读；维护者构建可编辑保存。</p>
+    <p class="hint tiny">{{ t("developerAnnouncements.readonlyHint") }}</p>
     <div class="dev-announce-url-row">
-      <label class="modal-label" for="dev-announce-url">远程正文地址（可选）</label>
+      <label class="modal-label" for="dev-announce-url">{{ t("developerAnnouncements.remoteUrlLabel") }}</label>
       <input
         id="dev-announce-url"
         v-model="url"
         type="url"
         class="dev-announce-url-input"
-        placeholder="https://raw.githubusercontent.com/你的用户/你的仓库/main/公告.md"
+        :placeholder="String(t('developerAnnouncements.remoteUrlPlaceholder'))"
       />
       <button type="button" class="btn" :disabled="fetchBusy || !url?.trim()" @click="emit('fetch')">
-        {{ fetchBusy ? '拉取中…' : '拉取最新' }}
+        {{ fetchBusy ? t("developerAnnouncements.fetching") : t("developerAnnouncements.fetchLatest") }}
       </button>
     </div>
     <p class="hint tiny">
-      不是复制仓库主页链接：需要 Raw 或等价直链（响应体就是 Markdown/纯文本）。改 URL 后请先「保存配置」，再拉取。
+      {{ t("developerAnnouncements.remoteUrlHint") }}
     </p>
     <template v-if="announceEditEnabled">
       <textarea v-model="body" class="announce-edit" rows="7" spellcheck="false" />
-      <button type="button" class="btn" @click="emit('save')">保存到本地</button>
+      <button type="button" class="btn" @click="emit('save')">{{ t("developerAnnouncements.saveLocal") }}</button>
     </template>
     <template v-else>
-      <p v-if="!body.trim()" class="hint announce-empty-inline">暂无开发者公告。</p>
+      <p v-if="!body.trim()" class="hint announce-empty-inline">{{ t("developerAnnouncements.empty") }}</p>
       <pre v-else class="announce-readonly">{{ body }}</pre>
     </template>
   </section>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import HelpHint from '../components/HelpHint.vue'
 import { ROLE_PACK_CREATOR_MESSAGE_FILENAME } from '../lib/rolePackCreatorMessage'
 import { CREATOR_ANNOUNCE_HINT_PARAGRAPHS } from './helpCopy'
@@ -16,17 +17,19 @@ const emit = defineEmits<{
   refreshRoles: []
   clearFollow: []
 }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
   <section class="card announce-board announce-board--creator">
     <div class="section-title-row">
-      <h2>创作者公告</h2>
+      <h2>{{ t("creatorAnnouncements.title") }}</h2>
       <HelpHint :paragraphs="[...CREATOR_ANNOUNCE_HINT_PARAGRAPHS]" />
     </div>
 
-    <div class="creator-announce-bar" aria-label="选择要展示公告的角色">
-      <label class="sr-only" for="launcher-echo-role">角色</label>
+    <div class="creator-announce-bar" :aria-label="String(t('creatorAnnouncements.rolePickerAria'))">
+      <label class="sr-only" for="launcher-echo-role">{{ t("creatorAnnouncements.roleLabel") }}</label>
       <select
         id="launcher-echo-role"
         v-model="launcherEchoRoleId"
@@ -34,25 +37,24 @@ const emit = defineEmits<{
         :disabled="!ocliveRolesDir?.trim()"
         @change="emit('persistFollow')"
       >
-        <option value="">选择角色…</option>
+        <option value="">{{ t("creatorAnnouncements.pickRole") }}</option>
         <option v-for="id in roleIds" :key="id" :value="id">{{ id }}</option>
       </select>
       <button type="button" class="btn" :disabled="!ocliveRolesDir?.trim()" @click="emit('refreshRoles')">
-        刷新列表
+        {{ t("creatorAnnouncements.refresh") }}
       </button>
       <button
         type="button"
         class="btn"
         :disabled="!launcherEchoRoleId?.trim()"
-        title="清空当前选中的角色（不删包内文件）"
+        :title="String(t('creatorAnnouncements.clearTitle'))"
         @click="emit('clearFollow')"
       >
-        取消跟随
+        {{ t("creatorAnnouncements.clear") }}
       </button>
     </div>
     <p class="hint tiny creator-announce-bar-hint">
-      「取消跟随」= 不再锁定要展示公告的角色；角色文件夹与
-      <code>{{ ROLE_PACK_CREATOR_MESSAGE_FILENAME }}</code> 不会被删除。
+      {{ t("creatorAnnouncements.clearHint", { file: ROLE_PACK_CREATOR_MESSAGE_FILENAME }) }}
     </p>
 
     <div class="creator-announce-panel">
@@ -65,9 +67,9 @@ const emit = defineEmits<{
         </ul>
       </div>
       <p v-else-if="launcherEchoRoleId?.trim() && !echoLines.length" class="hint creator-echo-empty">
-        该包内尚无 <code>{{ ROLE_PACK_CREATOR_MESSAGE_FILENAME }}</code>。
+        {{ t("creatorAnnouncements.noFile", { file: ROLE_PACK_CREATOR_MESSAGE_FILENAME }) }}
       </p>
-      <p v-else class="hint creator-echo-empty">请选择角色。</p>
+      <p v-else class="hint creator-echo-empty">{{ t("creatorAnnouncements.emptyPick") }}</p>
     </div>
   </section>
 </template>

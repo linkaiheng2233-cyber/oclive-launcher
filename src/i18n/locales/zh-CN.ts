@@ -5,6 +5,9 @@ export default {
     zhCN: "中文",
     enUS: "English",
   },
+  helpHint: {
+    ariaLabel: "查看说明",
+  },
   launcher: {
     views: {
       start: "新手入门",
@@ -43,6 +46,48 @@ export default {
       assistant: "看看 Node、Ollama、文件夹路径对不对；不对就按提示装或改路径。",
       other: "软件在后台打印的信息都在这里，出问题先来这里瞄一眼。",
     },
+    startGuide: {
+      title: "新手照着做就行",
+      links: {
+        ollamaDownload: "Ollama 下载",
+        ollamaLibrary: "Ollama 模型库",
+        editorReleases: "编写器 Releases",
+        ocliveReleases: "运行时 Releases",
+      },
+    },
+    versionPage: {
+      title: "看版本、去下载",
+      quickLinks: "快捷入口",
+      buttons: {
+        versionsListing: "生态站 · 发布汇总页",
+        editorReleases: "编写器 Releases",
+        ocliveReleases: "oclive 运行时 Releases",
+      },
+    },
+  },
+  creatorAnnouncements: {
+    title: "创作者公告",
+    rolePickerAria: "选择要展示公告的角色",
+    roleLabel: "角色",
+    pickRole: "选择角色…",
+    refresh: "刷新列表",
+    clearTitle: "清空当前选中的角色（不删包内文件）",
+    clear: "取消跟随",
+    clearHint: "「取消跟随」= 不再锁定要展示公告的角色；角色文件夹与 {file} 不会被删除。",
+    noFile: "该包内尚无 {file}。",
+    emptyPick: "请选择角色。",
+  },
+  developerAnnouncements: {
+    title: "开发者公告",
+    readonlyHint: "只读；维护者构建可编辑保存。",
+    remoteUrlLabel: "远程正文地址（可选）",
+    remoteUrlPlaceholder: "https://raw.githubusercontent.com/你的用户/你的仓库/main/公告.md",
+    fetching: "拉取中…",
+    fetchLatest: "拉取最新",
+    remoteUrlHint:
+      "不是复制仓库主页链接：需要 Raw 或等价直链（响应体就是 Markdown/纯文本）。改 URL 后请先「保存配置」，再拉取。",
+    saveLocal: "保存到本地",
+    empty: "暂无开发者公告。",
   },
 };
 

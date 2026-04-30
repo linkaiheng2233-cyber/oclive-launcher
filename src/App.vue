@@ -1129,7 +1129,7 @@ onUnmounted(() => {
         <div v-if="activeNav === 'start'" class="view-panel view-start-stack">
         <section class="card guide-card">
         <div class="section-title-row">
-          <h2>新手照着做就行</h2>
+          <h2>{{ t("launcher.startGuide.title") }}</h2>
           <HelpHint :paragraphs="LAUNCHER_HINT_START_GUIDE" />
         </div>
         <p class="hint guide-lead">
@@ -1159,13 +1159,13 @@ onUnmounted(() => {
         <p class="hint guide-links">
           <button type="button" class="linkish" @click="openRelease('https://nodejs.org/')">Node.js</button>
           ·
-          <button type="button" class="linkish" @click="openRelease('https://ollama.com/download')">Ollama 下载</button>
+          <button type="button" class="linkish" @click="openRelease('https://ollama.com/download')">{{ t("launcher.startGuide.links.ollamaDownload") }}</button>
           ·
-          <button type="button" class="linkish" @click="openRelease('https://ollama.com/library')">Ollama 模型库</button>
+          <button type="button" class="linkish" @click="openRelease('https://ollama.com/library')">{{ t("launcher.startGuide.links.ollamaLibrary") }}</button>
           ·
-          <button type="button" class="linkish" @click="openRelease(releasesEditorUrl)">编写器 Releases</button>
+          <button type="button" class="linkish" @click="openRelease(releasesEditorUrl)">{{ t("launcher.startGuide.links.editorReleases") }}</button>
           ·
-          <button type="button" class="linkish" @click="openRelease(releasesOcliveUrl)">运行时 Releases</button>
+          <button type="button" class="linkish" @click="openRelease(releasesOcliveUrl)">{{ t("launcher.startGuide.links.ocliveReleases") }}</button>
         </p>
       </section>
 
@@ -1191,7 +1191,7 @@ onUnmounted(() => {
 
       <section v-else-if="activeNav === 'version'" class="view-panel card ver-page">
         <div class="section-title-row">
-          <h2>看版本、去下载</h2>
+          <h2>{{ t("launcher.versionPage.title") }}</h2>
           <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_PAGE" />
         </div>
         <p class="hint ver-page-lead">
@@ -1199,13 +1199,13 @@ onUnmounted(() => {
         </p>
         <div class="ver-quick-dl">
           <div class="label-with-hint ver-quick-head">
-            <span class="ver-subtle-label">快捷入口</span>
+            <span class="ver-subtle-label">{{ t("launcher.versionPage.quickLinks") }}</span>
             <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_QUICK_LINKS" />
           </div>
           <div class="ver-quick-btns">
-            <button type="button" class="btn" @click="openVersionsListingInBrowser">生态站 · 发布汇总页</button>
-            <button type="button" class="btn" @click="openRelease(releasesEditorUrl)">编写器 Releases</button>
-            <button type="button" class="btn" @click="openRelease(releasesOcliveUrl)">oclive 运行时 Releases</button>
+            <button type="button" class="btn" @click="openVersionsListingInBrowser">{{ t("launcher.versionPage.buttons.versionsListing") }}</button>
+            <button type="button" class="btn" @click="openRelease(releasesEditorUrl)">{{ t("launcher.versionPage.buttons.editorReleases") }}</button>
+            <button type="button" class="btn" @click="openRelease(releasesOcliveUrl)">{{ t("launcher.versionPage.buttons.ocliveReleases") }}</button>
           </div>
         </div>
         <p class="hint">

@@ -5,6 +5,9 @@ export default {
     zhCN: "中文",
     enUS: "English",
   },
+  helpHint: {
+    ariaLabel: "View help",
+  },
   launcher: {
     views: {
       start: "Getting started",
@@ -44,6 +47,49 @@ export default {
         "Check whether Node, Ollama, and folder paths are correct; follow prompts to install or fix paths.",
       other: "All background logs are shown here. When something breaks, check here first.",
     },
+    startGuide: {
+      title: "Just follow these steps",
+      links: {
+        ollamaDownload: "Ollama download",
+        ollamaLibrary: "Ollama model library",
+        editorReleases: "Editor releases",
+        ocliveReleases: "Runtime releases",
+      },
+    },
+    versionPage: {
+      title: "Versions & downloads",
+      quickLinks: "Quick links",
+      buttons: {
+        versionsListing: "Ecosystem site · releases overview",
+        editorReleases: "Editor releases",
+        ocliveReleases: "oclive runtime releases",
+      },
+    },
+  },
+  creatorAnnouncements: {
+    title: "Creator announcements",
+    rolePickerAria: "Choose role for announcements",
+    roleLabel: "Role",
+    pickRole: "Choose a role…",
+    refresh: "Refresh list",
+    clearTitle: "Clear current role selection (does not delete pack files)",
+    clear: "Stop following",
+    clearHint:
+      '"Stop following" = do not lock announcements to a role. Role folder and {file} will not be deleted.',
+    noFile: "This pack does not have {file}.",
+    emptyPick: "Please choose a role.",
+  },
+  developerAnnouncements: {
+    title: "Developer announcements",
+    readonlyHint: "Read-only. Maintainer builds can edit and save.",
+    remoteUrlLabel: "Remote body URL (optional)",
+    remoteUrlPlaceholder: "https://raw.githubusercontent.com/your-user/your-repo/main/announcements.md",
+    fetching: "Fetching…",
+    fetchLatest: "Fetch latest",
+    remoteUrlHint:
+      "Do not paste a repository homepage URL. Use a Raw (or equivalent) direct link whose response body is the Markdown/plain text. After changing the URL, click “Save config” first, then fetch.",
+    saveLocal: "Save to local",
+    empty: "No developer announcements.",
   },
 };
 
