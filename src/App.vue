@@ -350,7 +350,7 @@ const { loadAll, scheduleFirstLaunchDiagnose } = useLauncherBootstrap({
 async function saveConfig() {
   try {
     await invoke('save_config', { config: config.value })
-    statusMsg.value = '配置已保存'
+    statusMsg.value = String(t("launcher.status.configSaved"))
     await refreshLocalVersions()
     await refreshRolePackEchoUi()
   } catch (e) {
@@ -378,26 +378,28 @@ async function pickOcliveExe() {
 async function applyEditorRepoFromPastedUrl() {
   const r = parseGithubRepoFromUrl(editorGhUrlPaste.value)
   if (!r) {
-    statusMsg.value =
-      '认不出 GitHub 仓库地址。请粘贴浏览器地址栏里的链接，例如 https://github.com/用户名/仓库名'
+    statusMsg.value = String(t("launcher.status.githubRepoUnrecognized"))
     return
   }
   config.value.githubEditorOwner = r.owner
   config.value.githubEditorRepo = r.repo
-  statusMsg.value = `已填入编写器仓库：${r.owner}/${r.repo}（可到「编写器」页点「列出附件」下载）`
+  statusMsg.value = String(
+    t("launcher.status.githubEditorRepoApplied", { owner: r.owner, repo: r.repo }),
+  )
   await saveConfig()
 }
 
 async function applyOcliveRepoFromPastedUrl() {
   const r = parseGithubRepoFromUrl(ocliveGhUrlPaste.value)
   if (!r) {
-    statusMsg.value =
-      '认不出 GitHub 仓库地址。请粘贴浏览器地址栏里的链接，例如 https://github.com/用户名/仓库名'
+    statusMsg.value = String(t("launcher.status.githubRepoUnrecognized"))
     return
   }
   config.value.githubOcliveOwner = r.owner
   config.value.githubOcliveRepo = r.repo
-  statusMsg.value = `已填入 oclive 仓库：${r.owner}/${r.repo}（可到「启动 oclive」页点「列出附件」下载）`
+  statusMsg.value = String(
+    t("launcher.status.githubOcliveRepoApplied", { owner: r.owner, repo: r.repo }),
+  )
   await saveConfig()
 }
 
@@ -408,7 +410,7 @@ function onOcliveExeInputPaste(e: ClipboardEvent) {
   e.preventDefault()
   config.value.ocliveExe = p
   config.value.ocliveMode = 'exe'
-  statusMsg.value = '已从粘贴识别 oclive.exe，已切换到「已安装的 exe」'
+  statusMsg.value = String(t("launcher.status.ocliveExeRecognizedFromPaste"))
   void saveConfig()
 }
 
@@ -419,31 +421,31 @@ function onEditorExeInputPaste(e: ClipboardEvent) {
   e.preventDefault()
   config.value.editorExe = p
   config.value.editorMode = 'exe'
-  statusMsg.value = '已从粘贴识别编写器 exe，已切换到「本地 exe」'
+  statusMsg.value = String(t("launcher.status.editorExeRecognizedFromPaste"))
   void saveConfig()
 }
 
 async function applyOcliveExeFromField() {
   const p = normalizeExePathPaste(config.value.ocliveExe)
   if (!p) {
-    statusMsg.value = '请填写以 .exe 结尾的完整路径（可含引号）'
+    statusMsg.value = String(t("launcher.status.exePathInvalid"))
     return
   }
   config.value.ocliveExe = p
   config.value.ocliveMode = 'exe'
-  statusMsg.value = '已整理 oclive.exe 路径并切换到 exe 模式'
+  statusMsg.value = String(t("launcher.status.ocliveExeNormalized"))
   await saveConfig()
 }
 
 async function applyEditorExeFromField() {
   const p = normalizeExePathPaste(config.value.editorExe)
   if (!p) {
-    statusMsg.value = '请填写以 .exe 结尾的完整路径（可含引号）'
+    statusMsg.value = String(t("launcher.status.exePathInvalid"))
     return
   }
   config.value.editorExe = p
   config.value.editorMode = 'exe'
-  statusMsg.value = '已整理编写器 exe 路径并切换到本地 exe 模式'
+  statusMsg.value = String(t("launcher.status.editorExeNormalized"))
   await saveConfig()
 }
 
@@ -462,8 +464,8 @@ async function refreshOcliveGhAssets() {
     })
     ocliveGhAssetUrl.value = ''
     statusMsg.value = ocliveGhAssets.value.length
-      ? `已列出 oclive 仓库 ${ocliveGhAssets.value.length} 个 Release 附件`
-      : '该 Release 下没有附件（或仓库尚无 Release）'
+      ? String(t("launcher.status.ghAssetsListedOclive", { n: ocliveGhAssets.value.length }))
+      : String(t("launcher.status.ghAssetsNone"))
   } catch (e) {
     ocliveGhAssets.value = []
     ocliveGhAssetUrl.value = ''
@@ -482,8 +484,8 @@ async function refreshEditorGhAssets() {
     })
     editorGhAssetUrl.value = ''
     statusMsg.value = editorGhAssets.value.length
-      ? `已列出编写器仓库 ${editorGhAssets.value.length} 个 Release 附件`
-      : '该 Release 下没有附件（或仓库尚无 Release）'
+      ? String(t("launcher.status.ghAssetsListedEditor", { n: editorGhAssets.value.length }))
+      : String(t("launcher.status.ghAssetsNone"))
   } catch (e) {
     editorGhAssets.value = []
     editorGhAssetUrl.value = ''
@@ -497,7 +499,7 @@ async function downloadOcliveFromGh() {
   const url = ocliveGhAssetUrl.value.trim()
   const asset = ocliveGhAssets.value.find((a) => a.browserDownloadUrl === url)
   if (!asset) {
-    statusMsg.value = '请先点「列出附件」并选择一个文件'
+    statusMsg.value = String(t("launcher.status.pickAssetFirst"))
     return
   }
   ocliveGhBusy.value = true
@@ -511,7 +513,7 @@ async function downloadOcliveFromGh() {
       config.value.ocliveExe = r.resolvedExe
       config.value.ocliveMode = 'exe'
       await saveConfig()
-      statusMsg.value = '已下载并填入 oclive 路径，已切换到 exe 模式并保存配置'
+      statusMsg.value = String(t("launcher.status.ocliveDownloadedAndConfigured"))
     } else {
       statusMsg.value = r.hint ? `${r.hint}（已保存：${r.savedPath}）` : `已保存：${r.savedPath}`
     }
@@ -526,7 +528,7 @@ async function downloadEditorFromGh() {
   const url = editorGhAssetUrl.value.trim()
   const asset = editorGhAssets.value.find((a) => a.browserDownloadUrl === url)
   if (!asset) {
-    statusMsg.value = '请先点「列出附件」并选择一个文件'
+    statusMsg.value = String(t("launcher.status.pickAssetFirst"))
     return
   }
   editorGhBusy.value = true
@@ -540,7 +542,7 @@ async function downloadEditorFromGh() {
       config.value.editorExe = r.resolvedExe
       config.value.editorMode = 'exe'
       await saveConfig()
-      statusMsg.value = '已下载并填入编写器路径，已切换到 exe 模式并保存配置'
+      statusMsg.value = String(t("launcher.status.editorDownloadedAndConfigured"))
     } else {
       statusMsg.value = r.hint ? `${r.hint}（已保存：${r.savedPath}）` : `已保存：${r.savedPath}`
     }
@@ -563,10 +565,9 @@ async function fillSuggestedRolesDir() {
     })
     if (r) {
       config.value.ocliveRolesDir = r
-      statusMsg.value = '已填入 oclive 仓库下的 roles 目录'
+      statusMsg.value = String(t("launcher.status.rolesDirSuggestedFilled"))
     } else {
-      statusMsg.value =
-        '未找到：请确认「oclive 项目根」正确，且其下存在 roles 文件夹（若尚未克隆仓库可先手动选择目录）'
+      statusMsg.value = String(t("launcher.status.rolesDirSuggestedNotFound"))
     }
   } catch (e) {
     statusMsg.value = String(e)
@@ -578,7 +579,7 @@ async function beginInstallRolePack() {
     const zipPath = await invoke<string | undefined>('pick_role_pack_zip')
     if (!zipPath) return
     if (!config.value.ocliveRolesDir?.trim()) {
-      statusMsg.value = '请先在下方填写「角色包根目录」'
+      statusMsg.value = String(t("launcher.status.rolesRootMissing"))
       return
     }
     pendingZipPath.value = zipPath
@@ -589,8 +590,7 @@ async function beginInstallRolePack() {
       ollamaLocalModels.value = await invoke<string[]>('ollama_list_local_models')
     } catch {
       ollamaLocalModels.value = []
-      statusMsg.value =
-        '未能列出本机已拉取的模型（Ollama 未启动？）。仍可手动输入模型名并完成安装。'
+      statusMsg.value = String(t("launcher.status.ollamaLocalModelsListFailed"))
     }
     installModalOpen.value = true
   } catch (e) {
@@ -606,13 +606,13 @@ function cancelInstallRolePackModal() {
 async function confirmInstallRolePack() {
   const model = effectiveInstallModel.value
   if (!model) {
-    statusMsg.value = '请选择或输入 Ollama 模型名'
+    statusMsg.value = String(t("launcher.status.ollamaModelMissing"))
     return
   }
   const zip = pendingZipPath.value
   const root = config.value.ocliveRolesDir?.trim()
   if (!zip || !root) {
-    statusMsg.value = '缺少 zip 或角色包根目录'
+    statusMsg.value = String(t("launcher.status.installMissingZipOrRoot"))
     return
   }
   installBusy.value = true
@@ -623,7 +623,7 @@ async function confirmInstallRolePack() {
       model,
       overwriteSettingsModel: installOverwriteModel.value,
     })
-    statusMsg.value = `已安装角色「${roleId}」到角色包目录，并已按选项写入 settings.json 的 model。`
+    statusMsg.value = String(t("launcher.status.rolePackInstalled", { roleId }))
     installModalOpen.value = false
     pendingZipPath.value = null
     await runEnvironmentDiagnose({ quiet: true })
@@ -645,14 +645,14 @@ async function launchBundledOllamaInstaller() {
   if (!bundledOllamaPath.value) return
   if (
     !confirm(
-      '将启动附带的 Ollama 安装程序（Windows）。若已安装过 Ollama，向导可能提示修复或卸载。是否继续？',
+      String(t("launcher.confirms.launchBundledOllamaInstaller")),
     )
   ) {
     return
   }
   try {
     await invoke('launch_bundled_ollama_installer')
-    statusMsg.value = '已启动附带安装程序；完成后请在「环境」页点「重新检测」。'
+    statusMsg.value = String(t("launcher.status.bundledOllamaInstallerLaunched"))
     focusLogsFilter('bundled-ollama')
   } catch (e) {
     statusMsg.value = String(e)
@@ -662,7 +662,7 @@ async function launchBundledOllamaInstaller() {
 async function installOllamaViaWinget() {
   if (
     !confirm(
-      '将通过 Windows 官方包管理器 winget 安装「Ollama.Ollama」。可能弹出 UAC 或安装向导，且需网络下载。是否继续？',
+      String(t("launcher.confirms.installOllamaViaWinget")),
     )
   ) {
     return
@@ -670,8 +670,7 @@ async function installOllamaViaWinget() {
   wingetInstallBusy.value = true
   try {
     await invoke('install_ollama_via_winget')
-    statusMsg.value =
-      '已开始 winget 安装 Ollama，进度见「日志」→ 筛选 winget。完成后请点「重新检测」。'
+    statusMsg.value = String(t("launcher.status.wingetInstallStarted"))
     focusLogsFilter('winget')
   } catch (e) {
     statusMsg.value = String(e)

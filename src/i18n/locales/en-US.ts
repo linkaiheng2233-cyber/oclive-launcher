@@ -81,6 +81,48 @@ export default {
       remoteVersion: "Latest online",
       openRelease: "Open release page",
     },
+    status: {
+      configSaved: "Config saved.",
+      githubRepoUnrecognized:
+        "Could not recognize the GitHub repository URL. Please paste the link from your browser address bar, e.g. https://github.com/user/repo",
+      githubEditorRepoApplied:
+        "Editor repo set to {owner}/{repo} (you can download assets on the “Role Pack Editor” page).",
+      githubOcliveRepoApplied:
+        "oclive repo set to {owner}/{repo} (you can download assets on the “Launch oclive” page).",
+      ocliveExeRecognizedFromPaste: "Detected oclive.exe from paste and switched to “installed exe”.",
+      editorExeRecognizedFromPaste: "Detected editor exe from paste and switched to “local exe”.",
+      exePathInvalid: "Please provide a full path ending with .exe (quotes are allowed).",
+      ocliveExeNormalized: "Normalized oclive.exe path and switched to exe mode.",
+      editorExeNormalized: "Normalized editor exe path and switched to local exe mode.",
+      ghAssetsListedOclive: "Listed {n} release assets for the oclive repo.",
+      ghAssetsListedEditor: "Listed {n} release assets for the editor repo.",
+      ghAssetsNone: "No assets in this release (or the repo has no releases yet).",
+      pickAssetFirst: "Click “List assets” first, then pick a file.",
+      ocliveDownloadedAndConfigured:
+        "Downloaded and filled the oclive path, switched to exe mode, and saved config.",
+      editorDownloadedAndConfigured:
+        "Downloaded and filled the editor path, switched to exe mode, and saved config.",
+      rolesDirSuggestedFilled: "Filled the roles directory under the oclive repo.",
+      rolesDirSuggestedNotFound:
+        "Not found. Please confirm “oclive project root” is correct and contains a roles folder (if you haven’t cloned the repo yet, pick a directory manually).",
+      rolesRootMissing: "Please fill “Role packs root directory” below first.",
+      ollamaLocalModelsListFailed:
+        "Could not list local models (is Ollama running?). You can still type a model name manually and continue installation.",
+      ollamaModelMissing: "Please choose or enter an Ollama model name.",
+      installMissingZipOrRoot: "Missing zip file or role packs root directory.",
+      rolePackInstalled:
+        "Installed role “{roleId}” into the role packs directory and wrote the selected model into settings.json.",
+      bundledOllamaInstallerLaunched:
+        "Launched the bundled installer. After it completes, click “Re-check” on the Environment page.",
+      wingetInstallStarted:
+        "Started winget installation for Ollama. Check progress in Logs (filter: winget). When done, click “Re-check”.",
+    },
+    confirms: {
+      launchBundledOllamaInstaller:
+        "This will start the bundled Ollama installer (Windows). If Ollama is already installed, the wizard may offer repair/uninstall. Continue?",
+      installOllamaViaWinget:
+        "This will install “Ollama.Ollama” via Windows package manager winget. It may trigger UAC/installer prompts and requires network download. Continue?",
+    },
   },
   creatorAnnouncements: {
     title: "Creator announcements",
