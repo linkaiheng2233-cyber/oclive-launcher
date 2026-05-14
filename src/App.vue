@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useI18n } from "vue-i18n";
-import { setAppLocale, type AppLocale } from "./i18n";
+import { setAppLocale, getLocalePreference, type AppLocale } from "./i18n";
 import HelpHint from './components/HelpHint.vue'
 import CreatorAnnouncementsSection from './announcements/CreatorAnnouncementsSection.vue'
 import DeveloperAnnouncementsSection from './announcements/DeveloperAnnouncementsSection.vue'
@@ -13,26 +13,10 @@ import { useLauncherUiScale } from './composables/useLauncherUiScale'
 import { useRolePackEcho } from './composables/useRolePackEcho'
 import type { RolePackEchoConfig } from './lib/rolePackCreatorMessage'
 import { normalizeExePathPaste, parseGithubRepoFromUrl } from './lib/launcherPaste'
-import {
-  LAUNCHER_HINT_ASSISTANT,
-  LAUNCHER_HINT_EDITOR_GH_DL,
-  LAUNCHER_HINT_EXE_PATH_PASTE,
-  LAUNCHER_HINT_GH_URL_PASTE,
-  LAUNCHER_HINT_LOGS,
-  LAUNCHER_HINT_OCLIVE_GH_DL,
-  LAUNCHER_HINT_START_GUIDE,
-  LAUNCHER_HINT_TITLEBAR_TOOLS,
-  LAUNCHER_HINT_VERSION_ACTIONS,
-  LAUNCHER_HINT_VERSION_LOCAL_VS_REMOTE,
-  LAUNCHER_HINT_VERSION_PAGE,
-  LAUNCHER_HINT_VERSION_QUICK_LINKS,
-  LAUNCHER_HINT_VERSION_REPO_EDITOR,
-  LAUNCHER_HINT_VERSION_REPO_OCLIVE,
-} from './lib/launcherHints'
 
 const { t } = useI18n()
 
-const uiLocale = ref<AppLocale>("system");
+const uiLocale = ref<AppLocale>(getLocalePreference());
 function onLocaleChange(v: string) {
   const next = (v as AppLocale) || "system";
   uiLocale.value = next;
@@ -1054,7 +1038,7 @@ onUnmounted(() => {
             <p class="sub">
               <template v-if="activeNav === 'start'">
                 {{ t("launcher.viewSub.start") }}
-              </template>
+</template>
               <template v-else-if="activeNav === 'version'">
                 {{ t("launcher.viewSub.version") }}
               </template>
@@ -1109,7 +1093,7 @@ onUnmounted(() => {
             >
               {{ t("launcher.titlebar.saveConfig") }}
             </button>
-            <HelpHint class="titlebar-tools-help" :paragraphs="LAUNCHER_HINT_TITLEBAR_TOOLS" />
+            <HelpHint class="titlebar-tools-help" hint-set="TITLEBAR_TOOLS" />
           </div>
         </div>
       </header>
@@ -1134,7 +1118,7 @@ onUnmounted(() => {
         <section class="card guide-card">
         <div class="section-title-row">
           <h2>{{ t("launcher.startGuide.title") }}</h2>
-          <HelpHint :paragraphs="LAUNCHER_HINT_START_GUIDE" />
+          <HelpHint hint-set="START_GUIDE" />
         </div>
         <p class="hint guide-lead">{{ t("launcher.startGuide.lead") }}</p>
         <p class="hint">{{ t("launcher.startGuide.desc") }}</p>
@@ -1197,13 +1181,13 @@ onUnmounted(() => {
       <section v-else-if="activeNav === 'version'" class="view-panel card ver-page">
         <div class="section-title-row">
           <h2>{{ t("launcher.versionPage.title") }}</h2>
-          <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_PAGE" />
+          <HelpHint hint-set="VERSION_PAGE" />
         </div>
         <p class="hint ver-page-lead">{{ t("launcher.versionPage.lead") }}</p>
         <div class="ver-quick-dl">
           <div class="label-with-hint ver-quick-head">
             <span class="ver-subtle-label">{{ t("launcher.versionPage.quickLinks") }}</span>
-            <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_QUICK_LINKS" />
+            <HelpHint hint-set="VERSION_QUICK_LINKS" />
           </div>
           <div class="ver-quick-btns">
             <button type="button" class="btn" @click="openVersionsListingInBrowser">{{ t("launcher.versionPage.buttons.versionsListing") }}</button>
@@ -1218,7 +1202,7 @@ onUnmounted(() => {
         <div class="gh-paste-block">
           <div class="label-with-hint">
             <label>{{ t("launcher.versionPage.editorRepoPaste.label") }}</label>
-            <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
+            <HelpHint hint-set="GH_URL_PASTE" />
           </div>
           <div class="row">
             <input
@@ -1235,7 +1219,7 @@ onUnmounted(() => {
         <div class="gh-row">
           <div class="label-with-hint gh-row__label">
             <label>{{ t("launcher.versionPage.editorRepoLabel") }}</label>
-            <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_REPO_EDITOR" />
+            <HelpHint hint-set="VERSION_REPO_EDITOR" />
           </div>
           <div class="gh-inputs">
             <input v-model="config.githubEditorOwner" placeholder="owner" />
@@ -1245,7 +1229,7 @@ onUnmounted(() => {
         </div>
         <div class="label-with-hint ver-compare-hint">
           <span class="ver-subtle-label">{{ t("launcher.versionPage.compareLabel") }}</span>
-          <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_LOCAL_VS_REMOTE" />
+          <HelpHint hint-set="VERSION_LOCAL_VS_REMOTE" />
         </div>
         <div class="ver-line">
           <span>{{ t("launcher.versionPage.localVersion") }}</span>
@@ -1264,7 +1248,7 @@ onUnmounted(() => {
         <div class="gh-paste-block">
           <div class="label-with-hint">
             <label>{{ t("launcher.versionPage.ocliveRepoPasteLabel") }}</label>
-            <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
+            <HelpHint hint-set="GH_URL_PASTE" />
           </div>
           <div class="row">
             <input
@@ -1281,7 +1265,7 @@ onUnmounted(() => {
         <div class="gh-row">
           <div class="label-with-hint gh-row__label">
             <label>{{ t("launcher.versionPage.ocliveRepoLabel") }}</label>
-            <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_REPO_OCLIVE" />
+            <HelpHint hint-set="VERSION_REPO_OCLIVE" />
           </div>
           <div class="gh-inputs">
             <input v-model="config.githubOcliveOwner" placeholder="owner" />
@@ -1291,7 +1275,7 @@ onUnmounted(() => {
         </div>
         <div class="label-with-hint ver-compare-hint">
           <span class="ver-subtle-label">{{ t("launcher.versionPage.compareLabel") }}</span>
-          <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_LOCAL_VS_REMOTE" />
+          <HelpHint hint-set="VERSION_LOCAL_VS_REMOTE" />
         </div>
         <div class="ver-line">
           <span>{{ t("launcher.versionPage.localVersion") }}</span>
@@ -1309,7 +1293,7 @@ onUnmounted(() => {
         <div class="ver-actions-wrap">
           <div class="label-with-hint ver-actions-hint">
             <span class="ver-subtle-label">{{ t("launcher.versionPage.checkUpdatesLabel") }}</span>
-            <HelpHint :paragraphs="LAUNCHER_HINT_VERSION_ACTIONS" />
+            <HelpHint hint-set="VERSION_ACTIONS" />
           </div>
           <div class="ver-actions-row">
             <button type="button" class="btn primary" @click="syncGithubUrlsAndCheckUpdates">
@@ -1323,7 +1307,7 @@ onUnmounted(() => {
     <section v-else-if="activeNav === 'assistant'" class="view-panel card">
         <div class="section-title-row">
           <h2>{{ t("launcher.assistant.title") }}</h2>
-          <HelpHint :paragraphs="LAUNCHER_HINT_ASSISTANT" />
+          <HelpHint hint-set="ASSISTANT" />
         </div>
         <div v-if="envDiag && nodeNeedsAttention" class="banner-warn banner-node" role="status">
           <strong>{{ t("launcher.assistant.banners.nodeStrong") }}</strong>{{ t("launcher.assistant.banners.nodeText") }}
@@ -1614,7 +1598,7 @@ onUnmounted(() => {
             <div class="gh-paste-block gh-paste-block--inline">
               <div class="label-with-hint">
                 <span class="gh-paste-inline-label">{{ t("launcher.launchOclive.sections.download.pasteRepoUrl") }}</span>
-                <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
+                <HelpHint hint-set="GH_URL_PASTE" />
               </div>
               <div class="row">
                 <input
@@ -1630,7 +1614,7 @@ onUnmounted(() => {
             <div class="gh-release-dl gh-release-dl--compact">
               <div class="label-with-hint gh-release-dl__label-row">
                 <span class="gh-release-dl__label">{{ t("launcher.launchOclive.sections.download.ghReleaseLabel") }}</span>
-                <HelpHint :paragraphs="LAUNCHER_HINT_OCLIVE_GH_DL" />
+                <HelpHint hint-set="OCLIVE_GH_DL" />
               </div>
               <div class="row gh-release-dl-row">
                 <button
@@ -1684,7 +1668,7 @@ onUnmounted(() => {
             <template v-else>
               <div class="label-with-hint">
                 <label>{{ t("launcher.launchOclive.sections.runMode.exePathLabel") }}</label>
-                <HelpHint :paragraphs="LAUNCHER_HINT_EXE_PATH_PASTE" />
+                <HelpHint hint-set="EXE_PATH_PASTE" />
               </div>
               <p class="hint tiny">{{ t("launcher.launchOclive.sections.runMode.exePathHint") }}</p>
               <div class="row">
@@ -1752,7 +1736,7 @@ onUnmounted(() => {
             <div class="gh-paste-block gh-paste-block--inline">
               <div class="label-with-hint">
                 <span class="gh-paste-inline-label">{{ t("launcher.launchEditor.sections.download.pasteRepoUrl") }}</span>
-                <HelpHint :paragraphs="LAUNCHER_HINT_GH_URL_PASTE" />
+                <HelpHint hint-set="GH_URL_PASTE" />
               </div>
               <div class="row">
                 <input
@@ -1768,7 +1752,7 @@ onUnmounted(() => {
             <div class="gh-release-dl gh-release-dl--compact">
               <div class="label-with-hint gh-release-dl__label-row">
                 <span class="gh-release-dl__label">{{ t("launcher.launchEditor.sections.download.ghReleaseLabel") }}</span>
-                <HelpHint :paragraphs="LAUNCHER_HINT_EDITOR_GH_DL" />
+                <HelpHint hint-set="EDITOR_GH_DL" />
               </div>
               <div class="row gh-release-dl-row">
                 <button
@@ -1831,7 +1815,7 @@ onUnmounted(() => {
             <template v-else>
               <div class="label-with-hint">
                 <label>{{ t("launcher.launchEditor.sections.open.exePathLabel") }}</label>
-                <HelpHint :paragraphs="LAUNCHER_HINT_EXE_PATH_PASTE" />
+                <HelpHint hint-set="EXE_PATH_PASTE" />
               </div>
               <p class="hint tiny">{{ t("launcher.launchEditor.sections.open.exePathHint") }}</p>
               <div class="row">
@@ -1884,7 +1868,7 @@ onUnmounted(() => {
       <div class="log-head">
         <div class="section-title-row log-title-row">
           <h2>{{ t("launcher.logsPage.title") }}</h2>
-          <HelpHint :paragraphs="LAUNCHER_HINT_LOGS" />
+          <HelpHint hint-set="LOGS" />
         </div>
         <div class="log-tools">
           <label>{{ t("launcher.logsPage.onlyShow") }}</label>

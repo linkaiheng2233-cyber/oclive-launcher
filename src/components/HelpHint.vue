@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from "vue-i18n";
+import type { LauncherHelpHintSet } from "../lib/launcherHints";
+import { HINTS_ZH } from "../lib/launcherHints";
+import { HINTS_EN } from "../lib/launcherHintsEn";
 
 const props = defineProps<{
   /** 点击问号后显示的说明；可用连续两个换行分段，或传 `paragraphs` */
   text?: string
   /** 多段说明（优先展示）；每段单独成段，便于阅读 */
   paragraphs?: readonly string[]
+  /** 与 `paragraphs` 二选一：按界面语言从内置中英表取段落 */
+  hintSet?: LauncherHelpHintSet
 }>()
 
 type HelpHintInstance = {
@@ -39,19 +44,23 @@ function installDocListenersOnce() {
   })
 }
 
+const { t, locale } = useI18n()
+
 const segments = computed(() => {
   if (props.paragraphs?.length) {
     return props.paragraphs.map((s) => s.trim()).filter(Boolean)
   }
-  const t = props.text?.trim() ?? ''
-  if (!t) return []
-  return t
+  if (props.hintSet) {
+    const pack = locale.value === "en-US" ? HINTS_EN[props.hintSet] : HINTS_ZH[props.hintSet];
+    return [...pack].map((s) => s.trim()).filter(Boolean)
+  }
+  const raw = props.text?.trim() ?? ''
+  if (!raw) return []
+  return raw
     .split(/\n\n+/)
     .map((s) => s.trim())
     .filter(Boolean)
 })
-
-const { t } = useI18n()
 
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
