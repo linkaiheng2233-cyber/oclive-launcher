@@ -1,5 +1,7 @@
 # oclive 启动器
 
+> **Deprecated — 请改用 [oclive-studio](https://github.com/oclive-app/oclive-studio)**（oclive 工作室）：本仓库的启动、环境配置与角色包创作已合并为「启动模式 + 创作模式」双模式。新功能与修复仅在工作室维护；本仓保留只读归档与历史 Release 对照。
+
 [![CI](https://github.com/oclive-app/oclive-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/oclive-app/oclive-launcher/actions/workflows/ci.yml)
 
 独立 **桌面启动器**（Tauri 1.x + Vue 3 + TypeScript）：作为 **oclive 工具链的统一入口**，集中管理 **角色包编写器**（`oclive-pack-editor`）与 **oclive 运行时**（例如 `oclivenewnew`）的启动方式，把子进程 **stdout / stderr** 收到本窗口，避免弹出多个控制台；支持 **公告栏**、**GitHub Release 版本检查** 与 **打开发布页**。
