@@ -8,6 +8,7 @@
     "predev": "node scripts/ensure-dist.mjs",
     "build": "vue-tsc -b && vite build",
     "check": "npm run build && cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:unit": "vitest run",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "node scripts/ensure-dist.mjs && node scripts/sync-ollama-installer.mjs && tauri dev",
@@ -22,9 +23,12 @@
     "@tauri-apps/cli": "^1.5.14",
     "@types/node": "^24.12.2",
     "@vitejs/plugin-vue": "^6.0.5",
+    "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.9.1",
+    "jsdom": "^29.1.1",
     "typescript": "~6.0.2",
     "vite": "^8.0.4",
+    "vitest": "^4.1.2",
     "vue-tsc": "^3.2.6"
   }
 }
