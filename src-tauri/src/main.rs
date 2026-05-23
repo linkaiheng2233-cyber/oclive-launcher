@@ -52,7 +52,7 @@ struct LauncherConfig {
     /// 启动 oclive 时注入环境变量 `OCLIVE_ROLES_DIR`（须为已存在的目录：其下为各 `角色id/`）。
     #[serde(default)]
     oclive_roles_dir: String,
-    /// 启动器「随角色包寄语」跟随的 `roles` 子目录名（与 `manifest.json` 所在文件夹同名）；空表示不跟随。
+    /// 启动器「随角色包寄语」跟随的 `roles` 子目录名（与 `pipeline.ocblueprint` 所在文件夹同名）；空表示不跟随。
     #[serde(default)]
     launcher_echo_role_id: String,
     /// `ollama` | `remote` — 注入 `OCLIVE_LLM_BACKEND`，运行时覆盖角色包内 `plugin_backends.llm`。
@@ -291,7 +291,8 @@ struct EnvDiagnostics {
     oclive_project_ok: bool,
     oclive_package_json: bool,
     oclive_roles_dir_ok: bool,
-    oclive_roles_dir_has_role_hint: bool,
+    oclive_roles_dir_has_legacy_pack: bool,
+    oclive_roles_dir_blueprint_ok: bool,
 }
 
 fn try_cmd_version(program: &str, args: &[&str]) -> Option<String> {
@@ -350,7 +351,21 @@ fn roles_dir_looks_populated(root: &Path) -> bool {
     std::fs::read_dir(root).ok().is_some_and(|rd| {
         rd.flatten().any(|e| {
             let p = e.path();
-            p.is_dir() && p.join("manifest.json").is_file()
+            p.is_dir() && p.join("pipeline.ocblueprint").is_file()
+        })
+    })
+}
+
+fn roles_dir_has_legacy_pack(root: &Path) -> bool {
+    if !root.is_dir() {
+        return false;
+    }
+    std::fs::read_dir(root).ok().is_some_and(|rd| {
+        rd.flatten().any(|e| {
+            let p = e.path();
+            p.is_dir()
+                && p.join("manifest.json").is_file()
+                && !p.join("pipeline.ocblueprint").is_file()
         })
     })
 }
@@ -385,12 +400,15 @@ fn diagnose_environment(config: LauncherConfig) -> EnvDiagnostics {
     };
     let rd = config.oclive_roles_dir.trim();
     let roles_path = PathBuf::from(rd);
-    let (roles_ok, roles_hint) = if rd.is_empty() {
-        (false, false)
+    let (roles_ok, _roles_hint, roles_legacy, roles_blueprint_ok) = if rd.is_empty() {
+        (false, false, false, false)
     } else if roles_path.is_dir() {
-        (true, roles_dir_looks_populated(&roles_path))
+        let hint = roles_dir_looks_populated(&roles_path);
+        let legacy = roles_dir_has_legacy_pack(&roles_path);
+        let blueprint_ok = hint && !legacy;
+        (true, hint, legacy, blueprint_ok)
     } else {
-        (false, false)
+        (false, false, false, false)
     };
     EnvDiagnostics {
         node_version: node,
@@ -402,7 +420,8 @@ fn diagnose_environment(config: LauncherConfig) -> EnvDiagnostics {
         oclive_project_ok: oc_ok,
         oclive_package_json: oc_pkg,
         oclive_roles_dir_ok: roles_ok,
-        oclive_roles_dir_has_role_hint: roles_hint,
+        oclive_roles_dir_has_legacy_pack: roles_legacy,
+        oclive_roles_dir_blueprint_ok: roles_blueprint_ok,
     }
 }
 
@@ -514,8 +533,8 @@ fn install_role_pack_zip(
     let model = model.trim();
     validate_ollama_model_name(model)?;
     let role_id = role_pack::extract_role_pack_zip(&zp, &root)?;
-    let settings = root.join(&role_id).join("settings.json");
-    role_pack::patch_settings_model(&settings, model, overwrite_settings_model)?;
+    let blueprint = root.join(&role_id).join("pipeline.ocblueprint");
+    role_pack::patch_blueprint_model(&blueprint, model, overwrite_settings_model)?;
     Ok(role_id)
 }
 

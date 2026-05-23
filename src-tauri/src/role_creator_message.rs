@@ -54,7 +54,7 @@ fn normalize_role_creator_message_line(text: &str) -> Result<String, String> {
     Ok(line)
 }
 
-/// 列出 `roles` 根含 `manifest.json` 的子目录名（角色 id）。
+/// 列出 `roles` 根含 `pipeline.ocblueprint` 的子目录名（角色 id）。
 #[tauri::command]
 pub fn list_role_ids_with_manifest(roles_root: String) -> Result<Vec<String>, String> {
     let root = PathBuf::from(roles_root.trim());
@@ -75,7 +75,7 @@ pub fn list_role_ids_with_manifest(roles_root: String) -> Result<Vec<String>, St
         if name.starts_with('.') {
             continue;
         }
-        if entry.path().join("manifest.json").is_file() {
+        if entry.path().join("pipeline.ocblueprint").is_file() {
             out.push(name);
         }
     }
