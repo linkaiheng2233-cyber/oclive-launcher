@@ -7,8 +7,107 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
+
+const PIPELINE_BLUEPRINT_FILENAME: &str = "pipeline.ocblueprint";
 const ROLE_CREATOR_MESSAGE_MAX_CHARS: usize = 160;
 const ROLE_CREATOR_MESSAGE_FILENAME: &str = "creator_message.txt";
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RoleBlueprintMeta {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+}
+
+fn meta_string(v: &serde_json::Value, key: &str) -> Option<String> {
+    v.get(key)
+        .and_then(|x| x.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
+fn read_blueprint_meta_from_role_dir(role_dir: &Path, folder_id: &str) -> Result<RoleBlueprintMeta, String> {
+    let bp_path = role_dir.join(PIPELINE_BLUEPRINT_FILENAME);
+    if !bp_path.is_file() {
+        return Err(format!(
+            "未找到 {}：{}",
+            PIPELINE_BLUEPRINT_FILENAME,
+            bp_path.display()
+        ));
+    }
+    let raw = fs::read_to_string(&bp_path).map_err(|e| e.to_string())?;
+    let v: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+    let meta = v
+        .get("meta")
+        .ok_or_else(|| "pipeline.ocblueprint 缺少 meta".to_string())?;
+    let id = meta_string(meta, "id").unwrap_or_else(|| folder_id.to_string());
+    Ok(RoleBlueprintMeta {
+        id,
+        name: meta_string(meta, "name"),
+        version: meta_string(meta, "version"),
+        author: meta_string(meta, "author"),
+    })
+}
+
+/// 读取 `roles/{role_id}/pipeline.ocblueprint` 的 `meta` 摘要。
+#[tauri::command]
+pub fn read_role_blueprint_meta(roles_root: String, role_id: String) -> Result<RoleBlueprintMeta, String> {
+    validate_roles_subdir_name(&role_id)?;
+    let root = PathBuf::from(roles_root.trim());
+    if roles_root.trim().is_empty() {
+        return Err("请先填写角色包根目录".into());
+    }
+    let role_dir = root.join(role_id.trim());
+    if !role_dir.is_dir() {
+        return Err("角色目录不存在".into());
+    }
+    read_blueprint_meta_from_role_dir(&role_dir, role_id.trim())
+}
+
+/// 列出 roles 根下各 v2 角色包的 blueprint `meta` 摘要。
+#[tauri::command]
+pub fn list_role_blueprint_meta(roles_root: String) -> Result<Vec<RoleBlueprintMeta>, String> {
+    let root = PathBuf::from(roles_root.trim());
+    if roles_root.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    if !root.is_dir() {
+        return Err("角色包根目录不存在或不是文件夹".into());
+    }
+    let mut out: Vec<RoleBlueprintMeta> = Vec::new();
+    for entry in fs::read_dir(&root).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        if !entry.file_type().map_err(|e| e.to_string())?.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') {
+            continue;
+        }
+        let role_dir = entry.path();
+        if !role_dir.join(PIPELINE_BLUEPRINT_FILENAME).is_file() {
+            continue;
+        }
+        match read_blueprint_meta_from_role_dir(&role_dir, &name) {
+            Ok(m) => out.push(m),
+            Err(_) => out.push(RoleBlueprintMeta {
+                id: name,
+                name: None,
+                version: None,
+                author: None,
+            }),
+        }
+    }
+    out.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(out)
+}
 
 fn ensure_parent_dir(path: &Path) -> Result<(), String> {
     if let Some(parent) = path.parent() {

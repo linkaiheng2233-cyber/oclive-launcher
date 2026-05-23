@@ -14,8 +14,27 @@ export type RolePackEchoConfig = {
   launcherEchoRoleId: string
 }
 
+export type RoleBlueprintMeta = {
+  id: string
+  name?: string | null
+  version?: string | null
+  author?: string | null
+}
+
+export function formatRoleBlueprintLabel(meta: RoleBlueprintMeta): string {
+  const name = meta.name?.trim()
+  const version = meta.version?.trim()
+  const bits: string[] = []
+  if (name && name !== meta.id) bits.push(name)
+  bits.push(meta.id)
+  if (version) bits.push(`v${version}`)
+  return bits.join(' · ')
+}
+
 export const TAURI_ROLE_CREATOR_MESSAGE = {
   listRoleIds: 'list_role_ids_with_manifest',
+  listRoleMeta: 'list_role_blueprint_meta',
+  readBlueprintMeta: 'read_role_blueprint_meta',
   read: 'read_role_creator_message_lines',
   write: 'write_role_creator_message',
 } as const

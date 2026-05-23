@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
 import HelpHint from '../components/HelpHint.vue'
-import { ROLE_PACK_CREATOR_MESSAGE_FILENAME } from '../lib/rolePackCreatorMessage'
+import {
+  formatRoleBlueprintLabel,
+  ROLE_PACK_CREATOR_MESSAGE_FILENAME,
+  type RoleBlueprintMeta,
+} from '../lib/rolePackCreatorMessage'
 import { CREATOR_ANNOUNCE_HINT_PARAGRAPHS } from './helpCopy'
 
 defineProps<{
-  roleIds: string[]
+  roleSummaries: RoleBlueprintMeta[]
   echoLines: string[]
   ocliveRolesDir: string
 }>()
@@ -38,7 +42,9 @@ const { t } = useI18n()
         @change="emit('persistFollow')"
       >
         <option value="">{{ t("creatorAnnouncements.pickRole") }}</option>
-        <option v-for="id in roleIds" :key="id" :value="id">{{ id }}</option>
+        <option v-for="role in roleSummaries" :key="role.id" :value="role.id">
+          {{ formatRoleBlueprintLabel(role) }}
+        </option>
       </select>
       <button type="button" class="btn" :disabled="!ocliveRolesDir?.trim()" @click="emit('refreshRoles')">
         {{ t("creatorAnnouncements.refresh") }}

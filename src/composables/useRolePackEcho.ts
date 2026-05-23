@@ -1,6 +1,10 @@
 import { type Ref, ref } from 'vue'
 import { invoke } from '@tauri-apps/api/tauri'
-import { type RolePackEchoConfig, TAURI_ROLE_CREATOR_MESSAGE } from '../lib/rolePackCreatorMessage'
+import {
+  type RoleBlueprintMeta,
+  type RolePackEchoConfig,
+  TAURI_ROLE_CREATOR_MESSAGE,
+} from '../lib/rolePackCreatorMessage'
 
 export function useRolePackEcho<C extends RolePackEchoConfig>(
   config: Ref<C>,
@@ -11,7 +15,7 @@ export function useRolePackEcho<C extends RolePackEchoConfig>(
   },
 ) {
   const echoLines = ref<string[]>([])
-  const roleIds = ref<string[]>([])
+  const roleSummaries = ref<RoleBlueprintMeta[]>([])
 
   /** 当前跟随角色在磁盘上的寄语行（一句或多行）；未跟随或读失败时为空数组 */
   async function readFollowedRoleLines(): Promise<string[]> {
@@ -36,16 +40,16 @@ export function useRolePackEcho<C extends RolePackEchoConfig>(
   async function refreshEchoUi() {
     const root = config.value.ocliveRolesDir?.trim()
     if (!root) {
-      roleIds.value = []
+      roleSummaries.value = []
       echoLines.value = []
       return
     }
     try {
-      roleIds.value = await invoke<string[]>(TAURI_ROLE_CREATOR_MESSAGE.listRoleIds, {
+      roleSummaries.value = await invoke<RoleBlueprintMeta[]>(TAURI_ROLE_CREATOR_MESSAGE.listRoleMeta, {
         rolesRoot: root,
       })
     } catch {
-      roleIds.value = []
+      roleSummaries.value = []
     }
     await refreshEchoLines()
   }
@@ -66,7 +70,9 @@ export function useRolePackEcho<C extends RolePackEchoConfig>(
 
   return {
     echoLines,
-    roleIds,
+    roleSummaries,
+    /** @deprecated use roleSummaries */
+    roleIds: roleSummaries,
     refreshEchoUi,
     refreshEchoLines,
     persistFollowRole,

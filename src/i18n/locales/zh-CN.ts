@@ -393,7 +393,7 @@ export default {
         "；下列为当前本机已拉取的模型（来自 ollama list / API）。云端 API 不走 Ollama，见环境页说明。",
       customModelLabel: "自定义模型名（与 ollama pull 一致）",
       customModelPlaceholder: "例如 llama3.2:latest",
-      overwriteModel: "若 settings.json 里已有 model，仍覆盖为所选模型",
+      overwriteModel: "若 blueprint meta 已有 ollama_model，仍覆盖为所选模型",
       refreshLocalList: "刷新本机列表",
       pullSelected: "拉取所选模型（ollama pull）",
       extractAndWrite: "解压并写入",
@@ -423,7 +423,7 @@ export default {
         "未能列出本机已拉取的模型（Ollama 未启动？）。仍可手动输入模型名并完成安装。",
       ollamaModelMissing: "请选择或输入 Ollama 模型名",
       installMissingZipOrRoot: "缺少 zip 或角色包根目录",
-      rolePackInstalled: "已安装角色「{roleId}」到角色包目录，并已按选项写入 settings.json 的 model。",
+      rolePackInstalled: "已安装角色包「{roleId}」到角色包目录，并已写入 blueprint meta.ollama_model。",
       bundledOllamaInstallerLaunched: "已启动附带安装程序；完成后请在「环境」页点「重新检测」。",
       wingetInstallStarted:
         "已开始 winget 安装 Ollama，进度见「日志」→ 筛选 winget。完成后请点「重新检测」。",

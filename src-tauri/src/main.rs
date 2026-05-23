@@ -1046,6 +1046,8 @@ fn main() {
             announcements::load_creator_announcements,
             announcements::save_creator_announcements,
             role_creator_message::list_role_ids_with_manifest,
+            role_creator_message::read_role_blueprint_meta,
+            role_creator_message::list_role_blueprint_meta,
             role_creator_message::read_role_creator_message_lines,
             role_creator_message::write_role_creator_message,
             pick_folder,

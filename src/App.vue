@@ -129,7 +129,7 @@ async function persistLauncherConfigToDisk() {
 
 const {
   echoLines: rolePackEchoLines,
-  roleIds: rolePackRoleIds,
+  roleSummaries: rolePackRoleSummaries,
   refreshEchoUi: refreshRolePackEchoUi,
   persistFollowRole: persistLauncherEchoRole,
   clearFollowRole: clearLauncherEchoRole,
@@ -612,7 +612,19 @@ async function confirmInstallRolePack() {
       model,
       overwriteSettingsModel: installOverwriteModel.value,
     })
-    statusMsg.value = String(t("launcher.status.rolePackInstalled", { roleId }))
+    let installDetail = roleId
+    try {
+      const meta = await invoke<{ name?: string | null; version?: string | null; author?: string | null }>(
+        'read_role_blueprint_meta',
+        { rolesRoot: root, roleId },
+      )
+      const parts = [meta.name?.trim(), meta.version?.trim() ? `v${meta.version.trim()}` : '', meta.author?.trim()]
+        .filter(Boolean)
+      if (parts.length) installDetail = `${roleId}（${parts.join(' · ')}）`
+    } catch {
+      /* keep roleId only */
+    }
+    statusMsg.value = String(t('launcher.status.rolePackInstalled', { roleId: installDetail }))
     installModalOpen.value = false
     pendingZipPath.value = null
     await runEnvironmentDiagnose({ quiet: true })
@@ -1161,7 +1173,7 @@ onUnmounted(() => {
 
       <CreatorAnnouncementsSection
         v-model:launcher-echo-role-id="config.launcherEchoRoleId"
-        :role-ids="rolePackRoleIds"
+        :role-summaries="rolePackRoleSummaries"
         :echo-lines="rolePackEchoLines"
         :oclive-roles-dir="config.ocliveRolesDir"
         @persist-follow="persistLauncherEchoRole"

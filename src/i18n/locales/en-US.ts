@@ -410,7 +410,7 @@ export default {
       customModelLabel: "Custom model name (same as ollama pull)",
       customModelPlaceholder: "e.g. llama3.2:latest",
       overwriteModel:
-        "If settings.json already has model, still overwrite it with the selected model",
+        "If blueprint meta already has ollama_model, still overwrite it with the selected model",
       refreshLocalList: "Refresh local list",
       pullSelected: "Pull selected model (ollama pull)",
       extractAndWrite: "Extract and write",
@@ -445,7 +445,7 @@ export default {
       ollamaModelMissing: "Please choose or enter an Ollama model name.",
       installMissingZipOrRoot: "Missing zip file or role packs root directory.",
       rolePackInstalled:
-        "Installed role “{roleId}” into the role packs directory and wrote the selected model into settings.json.",
+        "Installed role pack “{roleId}” into the role packs directory and wrote the selected model into blueprint meta.ollama_model.",
       bundledOllamaInstallerLaunched:
         "Launched the bundled installer. After it completes, click “Re-check” on the Environment page.",
       wingetInstallStarted:
