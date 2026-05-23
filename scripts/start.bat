@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0\.."
 
 if not exist "node_modules\" (
   echo [oclive-launcher] Installing npm dependencies...
@@ -41,6 +41,6 @@ exit /b %errorlevel%
 
 :usage
 echo Usage:
-echo   start.bat           - Tauri hub ^(recommended^)
-echo   start.bat web       - Vite in browser only
+echo   scripts\start.bat           - Tauri hub ^(recommended^)
+echo   scripts\start.bat web       - Vite in browser only
 exit /b 0
