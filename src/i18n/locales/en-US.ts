@@ -240,8 +240,10 @@ export default {
         missingOk:
           "Optional; if set, launching oclive will pass it automatically",
         badPath: "Invalid path",
-        noRolesYet: "Folder exists but no role files detected (you can install after launch)",
-        looksOk: "Looks like role data exists",
+        noRolesYet: "Folder exists but no v2 blueprint role packs detected (you can install after launch)",
+        legacyNeedsMigrate:
+          "Legacy manifest.json role pack(s) found — run oclive pack migrate-to-blueprint",
+        looksOk: "v2 blueprint role pack(s) detected",
       },
     },
     common: {

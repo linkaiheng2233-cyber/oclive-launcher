@@ -230,8 +230,10 @@ export default {
       rolesDir: {
         missingOk: "没填也行；填了启动 oclive 会自动指过去",
         badPath: "路径不对",
-        noRolesYet: "文件夹在，还没看到角色文件（可先启动再装）",
-        looksOk: "看起来已有角色数据",
+        noRolesYet: "文件夹在，还没看到 v2 蓝图角色包（可先启动再装）",
+        legacyNeedsMigrate:
+          "发现 legacy manifest.json 角色包，请运行 oclive pack migrate-to-blueprint 迁移",
+        looksOk: "看起来已有 v2 蓝图角色包",
       },
     },
     common: {

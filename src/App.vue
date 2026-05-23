@@ -91,7 +91,8 @@ interface EnvDiagnostics {
   ocliveProjectOk: boolean
   oclivePackageJson: boolean
   ocliveRolesDirOk: boolean
-  ocliveRolesDirHasRoleHint: boolean
+  ocliveRolesDirHasLegacyPack: boolean
+  ocliveRolesDirBlueprintOk: boolean
 }
 
 const config = ref<LauncherConfig>({
@@ -1407,7 +1408,8 @@ onUnmounted(() => {
               >
                 <template v-if="!config.ocliveRolesDir?.trim()">{{ t("launcher.assistant.rolesDir.missingOk") }}</template>
                 <template v-else-if="!envDiag.ocliveRolesDirOk">{{ t("launcher.assistant.rolesDir.badPath") }}</template>
-                <template v-else-if="!envDiag.ocliveRolesDirHasRoleHint">{{ t("launcher.assistant.rolesDir.noRolesYet") }}</template>
+                <template v-else-if="envDiag.ocliveRolesDirHasLegacyPack">{{ t("launcher.assistant.rolesDir.legacyNeedsMigrate") }}</template>
+                <template v-else-if="!envDiag.ocliveRolesDirBlueprintOk">{{ t("launcher.assistant.rolesDir.noRolesYet") }}</template>
                 <template v-else>{{ t("launcher.assistant.rolesDir.looksOk") }}</template>
               </td>
             </tr>
