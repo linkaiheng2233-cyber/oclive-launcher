@@ -12,18 +12,21 @@
 
 | 仓库 | 说明 |
 |------|------|
-| [oclivenewnew](https://github.com/oclive-app/oclivenewnew) | 运行时、HTTP API、`creator-docs` 与角色契约 |
-| [oclive-pack-editor](https://github.com/oclive-app/oclive-pack-editor) | 角色包编写器（导出与校验） |
+| [oclivenewnew](https://github.com/oclive-app/oclivenewnew) | **A.I.Live 运行时**（对话、加载角色包、专家路由 / 架构图） |
+| [oclive-pack-editor](https://github.com/oclive-app/oclive-pack-editor) | **角色包编写器**（导出与校验；新用户请用此仓 + 运行时，**无需本启动器**） |
+| **本仓库（oclive-launcher）** | **已退役**，仅归档 |
 
-**纽带与契约**：三应用只通过磁盘上的 **角色包** 连接；`min_runtime_version`、Remote 环境变量等语义见 oclivenewnew **[PACK_VERSIONING.md](https://github.com/oclive-app/oclivenewnew/blob/main/creator-docs/role-pack/PACK_VERSIONING.md)** 与 **[REMOTE_PLUGIN_PROTOCOL.md](https://github.com/oclive-app/oclivenewnew/blob/main/creator-docs/plugin-and-architecture/REMOTE_PLUGIN_PROTOCOL.md)**。
+**纽带与契约**：编写器与运行时只通过磁盘上的 **角色包** 连接；`min_runtime_version`、Remote 环境变量等语义见 oclivenewnew **[PACK_VERSIONING.md](https://github.com/oclive-app/oclivenewnew/blob/main/creator-docs/role-pack/PACK_VERSIONING.md)** 与 **[CREATOR_WORKFLOW.md](https://github.com/oclive-app/oclivenewnew/blob/main/creator-docs/getting-started/CREATOR_WORKFLOW.md)**。
 
 **性格档案分工（给创作者与玩家）**：编写器编辑的是包内 **核心性格档案**（`core_personality.txt`）与 **`settings.json` 里的 `evolution`**。若包内 **`personality_source`** 为 **`profile`**，对话后的 **可变性格档案**只在 oclive **运行时本地数据库**中由模型维护，**不能**在 zip 或编写器里手写。七维与两种人格来源的关系见 oclivenewnew **[personality-archive-notes.md](https://github.com/oclive-app/oclivenewnew/blob/main/docs/personality-archive-notes.md)**、**[design-axis-evolution.md](https://github.com/oclive-app/oclivenewnew/blob/main/docs/design-axis-evolution.md)** 与 **[roles/README_MANIFEST.md](https://github.com/oclive-app/oclivenewnew/blob/main/roles/README_MANIFEST.md)**。
 
 本地开发时可将三仓 **同级克隆**（例如 `D:\oclivenewnew`、`D:\oclive-pack-editor`、`D:\oclive-launcher`），在启动器里填写相对路径即可。
 
-## 新用户：从下载到第一次对话（推荐路径）
+## 新用户：请改用编写器 + 运行时
 
-三软件分工：**编写器**产出角色包 → 磁盘上的 **`roles/` 根** → **运行时**加载并对话；**启动器**负责配置路径、注入环境变量并一键启动前两者。
+> **本启动器已退役。** 请使用 **[oclive-pack-editor](https://github.com/oclive-app/oclive-pack-editor)** 制作角色包，并用 **[oclivenewnew](https://github.com/oclive-app/oclivenewnew)**（A.I.Live）加载对话。下文为历史说明。
+
+编写器产出角色包 → 磁盘上的 **`roles/` 根** → 运行时 `load_role`；无需第三应用。
 
 | 步骤 | 做什么 |
 |------|--------|
