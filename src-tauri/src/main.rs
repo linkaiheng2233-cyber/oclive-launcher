@@ -531,10 +531,12 @@ fn install_role_pack_zip(
         return Err("请先填写有效的「角色包根目录」（须为已存在的文件夹）".into());
     }
     let model = model.trim();
-    validate_ollama_model_name(model)?;
     let role_id = role_pack::extract_role_pack_zip(&zp, &root)?;
     let blueprint = root.join(&role_id).join("pipeline.ocblueprint");
-    role_pack::patch_blueprint_model(&blueprint, model, overwrite_settings_model)?;
+    if !model.is_empty() {
+        validate_ollama_model_name(model)?;
+        role_pack::patch_blueprint_model(&blueprint, model, overwrite_settings_model)?;
+    }
     Ok(role_id)
 }
 

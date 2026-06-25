@@ -89,6 +89,10 @@ pub fn extract_role_pack_zip(zip_path: &Path, roles_root: &Path) -> Result<Strin
 }
 
 pub fn patch_blueprint_model(path: &Path, model: &str, overwrite: bool) -> Result<(), String> {
+    let model = model.trim();
+    if model.is_empty() {
+        return Ok(());
+    }
     if !path.is_file() {
         return Ok(());
     }
