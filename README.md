@@ -20,6 +20,8 @@ A historical OCLive desktop launcher. This repository is not the current end-use
 
 源码版本见 [package.json](package.json)。完整历史使用说明保留在[原始 README 快照](https://github.com/linkaiheng2233-cyber/oclive-launcher/blob/adea5c5e5fc499c3e4659fa4291e37419d04483e/README.md)，其中旧路径、依赖和发布计划不代表当前产品承诺。
 
+2026-10-29 的 [CI 构建](https://github.com/linkaiheng2233-cyber/oclive-launcher/actions/workflows/ci.yml)仍因 `src/i18n/locales/shared/common.en`、`common.zh` 模块缺失而未通过。历史源码不作为本轮可构建或可发布的软件交付。
+
 ## 反馈
 
 当前运行时问题请到[主仓 Issue](https://github.com/linkaiheng2233-cyber/oclivenewnew/issues)反馈；本历史仓库的问题可在[本仓 Issue](https://github.com/linkaiheng2233-cyber/oclive-launcher/issues)记录。请不要将仓库中的版本检查入口理解为已经发布了对应安装包。
