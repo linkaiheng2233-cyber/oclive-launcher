@@ -1,6 +1,8 @@
 # 参与贡献与发版说明
 
-感谢关注 **oclive-launcher**。本仓库为独立桌面应用（Tauri + Vue），与 **oclivenewnew**、**oclive-pack-editor** 通过本地路径与角色包协作，无源码嵌套。
+本仓已停止作为当前产品入口维护；日常使用和贡献请前往 [OCLive 主仓](https://github.com/linkaiheng2233-cyber/oclivenewnew)。下文保留独立启动器的开发与发版流程，供历史源码维护参考，不表示它属于当前发行链。
+
+独立启动器使用 Tauri + Vue，与 **oclivenewnew**、**oclive-pack-editor** 通过本地路径与角色包协作，无源码嵌套。
 
 ## 日常开发
 
